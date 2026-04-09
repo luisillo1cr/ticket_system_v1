@@ -1,18 +1,15 @@
 /**
  * Mobile-only bottom navigation.
  *
- * Admin: Inicio, Tickets, Clientes, Fichas y panel "Más".
+ * Admin/agent: Inicio, Tickets, Clientes, Fichas y panel "Más".
  * Client: Inicio, Tickets, Perfil y panel "Más".
- *
- * The client no longer shows a redundant "Nuevo" tab. The create-ticket route
- * is considered part of the tickets section and the quick sheet stays focused
- * on secondary actions only.
  */
 
 import { useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { ROUTES } from "../../constants/routes";
 import ThemeToggleButton from "../shared/ThemeToggleButton";
+import { getRoleLabel, isAdminRole, isStaffRole } from "../../utils/permissions";
 
 function DashboardIcon() {
   return (
@@ -78,6 +75,17 @@ function ProfileIcon() {
   );
 }
 
+function TeamIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M16 19a4 4 0 0 0-8 0" />
+      <circle cx="12" cy="11" r="3" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M18.5 8.5a2.5 2.5 0 1 0-2.95-2.45M5.5 8.5a2.5 2.5 0 1 1 2.95-2.45" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M19 18.5a3 3 0 0 0-2-2.82M5 18.5a3 3 0 0 1 2-2.82" />
+    </svg>
+  );
+}
+
 function MoreIcon() {
   return (
     <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
@@ -125,14 +133,56 @@ function isPathActive(pathname, matchPrefixes = [], exact = false) {
   });
 }
 
-function getRoleLabel(role) {
-  if (role === "admin") return "Administrador";
-  if (role === "client") return "Cliente";
-  return "Usuario";
-}
-
 function getMobileNavigationConfig(role) {
-  if (role === "admin") {
+  if (isStaffRole(role)) {
+    const quickLinks = [
+      {
+        key: "quotes",
+        label: "Cotizaciones",
+        description: "Listado, detalle y nuevas proformas.",
+        to: ROUTES.ADMIN_QUOTES,
+        icon: <QuoteIcon />,
+      },
+      {
+        key: "catalog",
+        label: "Catálogo técnico",
+        description: "Síntomas, diagnósticos, procedimientos y materiales.",
+        to: ROUTES.ADMIN_CATALOG,
+        icon: <DatabaseIcon />,
+      },
+      {
+        key: "newTicket",
+        label: "Nuevo ticket",
+        description: "Registrar una solicitud de soporte manual.",
+        to: ROUTES.ADMIN_TICKETS_NEW,
+        icon: <TicketIcon />,
+      },
+      {
+        key: "newTechnicalReport",
+        label: "Nueva ficha técnica",
+        description: "Crear un diagnóstico o intervención técnica.",
+        to: ROUTES.ADMIN_TECHNICAL_REPORTS_NEW,
+        icon: <FileIcon />,
+      },
+      {
+        key: "newQuote",
+        label: "Nueva cotización",
+        description: "Crear una nueva proforma desde cero.",
+        to: ROUTES.ADMIN_QUOTES_NEW,
+        icon: <PlusIcon />,
+      },
+    ];
+
+    if (isAdminRole(role)) {
+      quickLinks.splice(1, 0, {
+        key: "users",
+        label: "Equipo y roles",
+        description: "Crear accesos internos y definir quién es agente.",
+        to: ROUTES.ADMIN_USERS,
+        icon: <TeamIcon />,
+      });
+    }
+
     return {
       primaryItems: [
         {
@@ -165,44 +215,8 @@ function getMobileNavigationConfig(role) {
           matchPrefixes: [ROUTES.ADMIN_TECHNICAL_REPORTS],
         },
       ],
-      moreMatchPrefixes: [ROUTES.ADMIN_QUOTES, ROUTES.ADMIN_CATALOG],
-      quickLinks: [
-        {
-          key: "quotes",
-          label: "Cotizaciones",
-          description: "Listado, detalle y nuevas proformas.",
-          to: ROUTES.ADMIN_QUOTES,
-          icon: <QuoteIcon />,
-        },
-        {
-          key: "catalog",
-          label: "Catálogo técnico",
-          description: "Síntomas, diagnósticos, procedimientos y materiales.",
-          to: ROUTES.ADMIN_CATALOG,
-          icon: <DatabaseIcon />,
-        },
-        {
-          key: "newTicket",
-          label: "Nuevo ticket",
-          description: "Registrar una solicitud de soporte manual.",
-          to: ROUTES.ADMIN_TICKETS_NEW,
-          icon: <TicketIcon />,
-        },
-        {
-          key: "newTechnicalReport",
-          label: "Nueva ficha técnica",
-          description: "Crear un diagnóstico o intervención técnica.",
-          to: ROUTES.ADMIN_TECHNICAL_REPORTS_NEW,
-          icon: <FileIcon />,
-        },
-        {
-          key: "newQuote",
-          label: "Nueva cotización",
-          description: "Crear una nueva proforma desde cero.",
-          to: ROUTES.ADMIN_QUOTES_NEW,
-          icon: <PlusIcon />,
-        },
-      ],
+      moreMatchPrefixes: [ROUTES.ADMIN_QUOTES, ROUTES.ADMIN_CATALOG, ROUTES.ADMIN_USERS],
+      quickLinks,
     };
   }
 
@@ -286,7 +300,7 @@ function MobileBottomNav({ currentUser, onLogout }) {
     return null;
   }
 
-  const moreIsActive = isPathActive(location.pathname, navigation.moreMatchPrefixes);
+  const isMoreActive = isPathActive(location.pathname, navigation.moreMatchPrefixes);
 
   const handleNavigate = (to) => {
     navigate(to);
@@ -379,14 +393,11 @@ function MobileBottomNav({ currentUser, onLogout }) {
                   onClick={() => handleNavigate(item.to)}
                   className={`flex min-w-0 flex-col items-center justify-center gap-1 rounded-[22px] px-2 py-2.5 text-[11px] font-medium transition-all duration-300 ${
                     isActive
-                      ? "bg-slate-900 text-white shadow-lg shadow-slate-900/20 dark:bg-[#2563EB] dark:text-white dark:shadow-[0_16px_32px_rgba(37,99,235,0.35)]"
-                      : "text-slate-500 hover:bg-slate-100/90 dark:text-[#B0B0B0] dark:hover:bg-[#1E1E1E]"
+                      ? "bg-slate-900 text-white shadow-lg shadow-slate-900/20 dark:bg-[#2563EB] dark:text-white dark:shadow-[#2563EB]/30"
+                      : "text-slate-500 hover:bg-slate-100 hover:text-slate-900 dark:text-[#9CA3AF] dark:hover:bg-[#1A1A1A] dark:hover:text-[#E0E0E0]"
                   }`}
-                  aria-label={item.label}
                 >
-                  <span className="flex h-10 w-10 items-center justify-center rounded-2xl">
-                    {item.icon}
-                  </span>
+                  <span className="flex h-5 w-5 items-center justify-center">{item.icon}</span>
                   <span className="truncate">{item.label}</span>
                 </button>
               );
@@ -394,16 +405,14 @@ function MobileBottomNav({ currentUser, onLogout }) {
 
             <button
               type="button"
-              onClick={() => setIsMoreOpen((previousState) => !previousState)}
+              onClick={() => setIsMoreOpen((current) => !current)}
               className={`flex min-w-0 flex-col items-center justify-center gap-1 rounded-[22px] px-2 py-2.5 text-[11px] font-medium transition-all duration-300 ${
-                isMoreOpen || moreIsActive
-                  ? "bg-slate-900 text-white shadow-lg shadow-slate-900/20 dark:bg-[#2563EB] dark:text-white dark:shadow-[0_16px_32px_rgba(37,99,235,0.35)]"
-                  : "text-slate-500 hover:bg-slate-100/90 dark:text-[#B0B0B0] dark:hover:bg-[#1E1E1E]"
+                isMoreActive || isMoreOpen
+                  ? "bg-slate-900 text-white shadow-lg shadow-slate-900/20 dark:bg-[#2563EB] dark:text-white dark:shadow-[#2563EB]/30"
+                  : "text-slate-500 hover:bg-slate-100 hover:text-slate-900 dark:text-[#9CA3AF] dark:hover:bg-[#1A1A1A] dark:hover:text-[#E0E0E0]"
               }`}
-              aria-label="Más opciones"
-              aria-expanded={isMoreOpen}
             >
-              <span className="flex h-10 w-10 items-center justify-center rounded-2xl">
+              <span className="flex h-5 w-5 items-center justify-center">
                 <MoreIcon />
               </span>
               <span className="truncate">Más</span>

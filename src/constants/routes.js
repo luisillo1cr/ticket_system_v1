@@ -11,6 +11,7 @@ export const ROUTES = {
   ADMIN_TICKETS: "/app/admin/tickets",
   ADMIN_TICKETS_NEW: "/app/admin/tickets/new",
   ADMIN_CLIENTS: "/app/admin/clients",
+  ADMIN_USERS: "/app/admin/users",
   ADMIN_QUOTES: "/app/admin/quotes",
   ADMIN_QUOTES_NEW: "/app/admin/quotes/new",
   ADMIN_TECHNICAL_REPORTS: "/app/admin/technical-reports",

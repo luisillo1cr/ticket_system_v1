@@ -21,6 +21,7 @@ import {
   QUOTE_STATUS_LABELS,
 } from "../constants/quotes";
 import { ROUTES } from "../constants/routes";
+import { useAuth } from "../hooks/useAuth";
 import { subscribeClients } from "../services/clientService";
 import { subscribeServiceCatalog } from "../services/catalogService";
 import {
@@ -333,6 +334,9 @@ async function exportNodeToPdf(node, fileName) {
 function AdminQuoteDetailPage() {
   const { quoteId } = useParams();
   const navigate = useNavigate();
+  const { currentUser, hasPermission } = useAuth();
+  const canDeleteQuote = hasPermission("quotes.delete");
+  const canDeleteLineItems = hasPermission("quotes.lineItems.delete");
   const previewRef = useRef(null);
   const logoInputRef = useRef(null);
 
@@ -1165,14 +1169,16 @@ function AdminQuoteDetailPage() {
                   </div>
 
                   <div className="mt-4 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-                    <button
-                      type="button"
-                      className="btn-secondary"
-                      onClick={() => handleDeleteLineItem(item.id)}
-                      disabled={deletingLineItemId === item.id}
-                    >
-                      {deletingLineItemId === item.id ? "Eliminando..." : "Eliminar"}
-                    </button>
+                    {canDeleteLineItems ? (
+                      <button
+                        type="button"
+                        className="btn-secondary"
+                        onClick={() => handleDeleteLineItem(item.id)}
+                        disabled={deletingLineItemId === item.id}
+                      >
+                        {deletingLineItemId === item.id ? "Eliminando..." : "Eliminar"}
+                      </button>
+                    ) : null}
 
                     <button
                       type="button"
@@ -1581,41 +1587,52 @@ function AdminQuoteDetailPage() {
         </div>
       </article>
 
-      <article className="rounded-2xl border border-rose-200 bg-rose-50 p-6 dark:border-rose-500/30 dark:bg-rose-500/10">
-        <h3 className="text-base font-semibold text-rose-700 dark:text-rose-300">
-          Zona de eliminación
-        </h3>
-        <p className="mt-2 text-sm text-rose-700 dark:text-rose-300">
-          Eliminar la cotización borrará también todos sus line items.
-        </p>
+      {canDeleteQuote ? (
+        <article className="rounded-2xl border border-rose-200 bg-rose-50 p-6 dark:border-rose-500/30 dark:bg-rose-500/10">
+          <h3 className="text-base font-semibold text-rose-700 dark:text-rose-300">
+            Zona de eliminación
+          </h3>
+          <p className="mt-2 text-sm text-rose-700 dark:text-rose-300">
+            Eliminar la cotización borrará también todos sus line items.
+          </p>
 
-        <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:justify-end">
-          {!confirmDelete ? (
-            <button type="button" className="btn-secondary" onClick={() => setConfirmDelete(true)}>
-              Eliminar cotización
-            </button>
-          ) : (
-            <>
-              <button
-                type="button"
-                className="btn-secondary"
-                onClick={() => setConfirmDelete(false)}
-                disabled={deletingQuote}
-              >
-                Cancelar
+          <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:justify-end">
+            {!confirmDelete ? (
+              <button type="button" className="btn-secondary" onClick={() => setConfirmDelete(true)}>
+                Eliminar cotización
               </button>
-              <button
-                type="button"
-                className="btn-primary"
-                onClick={handleDeleteQuote}
-                disabled={deletingQuote}
-              >
-                {deletingQuote ? "Eliminando..." : "Confirmar eliminación"}
-              </button>
-            </>
-          )}
-        </div>
-      </article>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={() => setConfirmDelete(false)}
+                  disabled={deletingQuote}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  className="btn-primary"
+                  onClick={handleDeleteQuote}
+                  disabled={deletingQuote}
+                >
+                  {deletingQuote ? "Eliminando..." : "Confirmar eliminación"}
+                </button>
+              </>
+            )}
+          </div>
+        </article>
+      ) : (
+        <article className="rounded-2xl border border-slate-200 bg-slate-50 p-6 dark:border-[#444444] dark:bg-[#161616]">
+          <h3 className="text-base font-semibold text-slate-900 dark:text-[#E0E0E0]">
+            Acciones sensibles restringidas
+          </h3>
+          <p className="mt-2 text-sm text-slate-600 dark:text-[#B0B0B0]">
+            La cuenta {currentUser?.role === "agent" ? "Agente" : "actual"} puede crear, editar y exportar cotizaciones, pero no eliminar cotizaciones ni line items.
+          </p>
+        </article>
+      )}
 
       <div>
         <Link to={ROUTES.ADMIN_QUOTES} className="btn-secondary">

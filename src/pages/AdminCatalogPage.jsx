@@ -3,6 +3,7 @@
  */
 
 import { useEffect, useMemo, useState } from "react";
+import { useAuth } from "../hooks/useAuth";
 import { CATALOG_TYPE_LABELS } from "../constants/catalog";
 import {
   createCatalogItem,
@@ -82,6 +83,8 @@ function ToggleSwitch({ checked, onChange, label = "Activo" }) {
 }
 
 function AdminCatalogPage() {
+  const { currentUser, hasPermission } = useAuth();
+  const canResetCatalog = hasPermission("catalog.resetBase");
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [seeding, setSeeding] = useState(false);
@@ -240,6 +243,9 @@ function AdminCatalogPage() {
           <p className="section-subtitle mt-2">
             Base reutilizable de síntomas, diagnósticos, procedimientos, materiales, recomendaciones y servicios.
           </p>
+          <p className="mt-3 text-xs font-semibold uppercase tracking-[0.22em] text-slate-500 transition-colors duration-300 dark:text-[#888888]">
+            Sesión actual: {currentUser?.role === "agent" ? "Agente" : "Administrador"}
+          </p>
         </div>
 
         <div className="flex flex-col gap-3 sm:flex-row">
@@ -251,14 +257,16 @@ function AdminCatalogPage() {
           >
             Nuevo ítem
           </button>
-          <button
-            type="button"
-            className="btn-primary"
-            onClick={handleSeedCatalog}
-            disabled={seeding}
-          >
-            {seeding ? "Restableciendo..." : "Restablecer catálogo base"}
-          </button>
+          {canResetCatalog ? (
+            <button
+              type="button"
+              className="btn-primary"
+              onClick={handleSeedCatalog}
+              disabled={seeding}
+            >
+              {seeding ? "Restableciendo..." : "Restablecer catálogo base"}
+            </button>
+          ) : null}
         </div>
       </header>
 

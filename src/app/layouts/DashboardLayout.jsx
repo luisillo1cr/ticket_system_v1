@@ -8,6 +8,7 @@ import { useAuth } from "../../hooks/useAuth";
 import ThemeToggleButton from "../../components/shared/ThemeToggleButton";
 import BackToTopButton from "../../components/shared/BackToTopButton";
 import MobileBottomNav from "../../components/navigation/MobileBottomNav";
+import { getRoleLabel, isAdminRole, isStaffRole } from "../../utils/permissions";
 
 function DashboardIcon() {
   return (
@@ -64,6 +65,17 @@ function DatabaseIcon() {
   );
 }
 
+function TeamIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M16 19a4 4 0 0 0-8 0" />
+      <circle cx="12" cy="11" r="3" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M18.5 8.5a2.5 2.5 0 1 0-2.95-2.45M5.5 8.5a2.5 2.5 0 1 1 2.95-2.45" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M19 18.5a3 3 0 0 0-2-2.82M5 18.5a3 3 0 0 1 2-2.82" />
+    </svg>
+  );
+}
+
 function ProfileIcon() {
   return (
     <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
@@ -83,8 +95,8 @@ function LogoutIcon() {
 }
 
 function getNavigationByRole(role) {
-  if (role === "admin") {
-    return [
+  if (isStaffRole(role)) {
+    const items = [
       { label: "Dashboard", to: ROUTES.ADMIN_DASHBOARD, icon: <DashboardIcon /> },
       { label: "Tickets", to: ROUTES.ADMIN_TICKETS, icon: <TicketIcon /> },
       { label: "Clientes", to: ROUTES.ADMIN_CLIENTS, icon: <ClientsIcon /> },
@@ -92,6 +104,16 @@ function getNavigationByRole(role) {
       { label: "Fichas técnicas", to: ROUTES.ADMIN_TECHNICAL_REPORTS, icon: <FileIcon /> },
       { label: "Catálogo técnico", to: ROUTES.ADMIN_CATALOG, icon: <DatabaseIcon /> },
     ];
+
+    if (isAdminRole(role)) {
+      items.splice(3, 0, {
+        label: "Equipo y roles",
+        to: ROUTES.ADMIN_USERS,
+        icon: <TeamIcon />,
+      });
+    }
+
+    return items;
   }
 
   if (role === "client") {
@@ -110,6 +132,13 @@ function getMobileHeaderByRole(role) {
     return {
       eyebrow: "Moonforge Digital",
       title: "Panel de administración",
+    };
+  }
+
+  if (role === "agent") {
+    return {
+      eyebrow: "Moonforge Digital",
+      title: "Panel operativo",
     };
   }
 
@@ -178,7 +207,7 @@ function DashboardLayout() {
                     {currentUser?.name || currentUser?.email || "Usuario autenticado"}
                   </p>
                   <p className="mt-1 text-xs uppercase tracking-[0.2em] text-slate-500 transition-colors duration-300 dark:text-[#888888]">
-                    {currentUser?.role || "sin rol"}
+                    {getRoleLabel(currentUser?.role)}
                   </p>
                 </div>
 

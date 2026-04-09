@@ -328,7 +328,7 @@ export async function createQuote(payload, lineItems, currentUser) {
       tax: totals.tax,
       total: totals.total,
       createdByUid: currentUser.uid,
-      createdByName: currentUser.name || currentUser.email || "Administrador",
+      createdByName: currentUser.name || currentUser.email || (currentUser.role === "agent" ? "Agente" : "Administrador"),
       createdAt: now,
       updatedAt: now,
     };

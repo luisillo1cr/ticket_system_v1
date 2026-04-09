@@ -27,6 +27,7 @@ import AdminQuotesPage from "../../pages/AdminQuotesPage";
 import AdminCreateQuotePage from "../../pages/AdminCreateQuotePage";
 import AdminQuoteDetailPage from "../../pages/AdminQuoteDetailPage";
 import AdminClientsPage from "../../pages/AdminClientsPage";
+import AdminUsersPage from "../../pages/AdminUsersPage";
 import { ROUTES } from "../../constants/routes";
 import { useAuth } from "../../hooks/useAuth";
 import LoadingScreen from "../../components/shared/LoadingScreen";
@@ -38,7 +39,7 @@ function AppIndexRedirect() {
     return <LoadingScreen />;
   }
 
-  if (currentUser?.role === "admin") {
+  if (currentUser?.role === "admin" || currentUser?.role === "agent") {
     return <Navigate to={ROUTES.ADMIN_DASHBOARD} replace />;
   }
 
@@ -81,7 +82,7 @@ function AppRouter() {
         <Route
           path="admin/dashboard"
           element={
-            <ProtectedRoute allowedRoles={["admin"]}>
+            <ProtectedRoute allowedRoles={["admin", "agent"]}>
               <AdminDashboardPage />
             </ProtectedRoute>
           }
@@ -89,7 +90,7 @@ function AppRouter() {
         <Route
           path="admin/tickets"
           element={
-            <ProtectedRoute allowedRoles={["admin"]}>
+            <ProtectedRoute allowedRoles={["admin", "agent"]}>
               <AdminTicketsPage />
             </ProtectedRoute>
           }
@@ -97,7 +98,7 @@ function AppRouter() {
         <Route
           path="admin/tickets/new"
           element={
-            <ProtectedRoute allowedRoles={["admin"]}>
+            <ProtectedRoute allowedRoles={["admin", "agent"]}>
               <AdminCreateTicketPage />
             </ProtectedRoute>
           }
@@ -105,7 +106,7 @@ function AppRouter() {
         <Route
           path="admin/tickets/:ticketId"
           element={
-            <ProtectedRoute allowedRoles={["admin"]}>
+            <ProtectedRoute allowedRoles={["admin", "agent"]}>
               <AdminTicketDetailPage />
             </ProtectedRoute>
           }
@@ -113,15 +114,23 @@ function AppRouter() {
         <Route
           path="admin/clients"
           element={
-            <ProtectedRoute allowedRoles={["admin"]}>
+            <ProtectedRoute allowedRoles={["admin", "agent"]}>
               <AdminClientsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="admin/users"
+          element={
+            <ProtectedRoute allowedRoles={["admin"]}>
+              <AdminUsersPage />
             </ProtectedRoute>
           }
         />
         <Route
           path="admin/quotes"
           element={
-            <ProtectedRoute allowedRoles={["admin"]}>
+            <ProtectedRoute allowedRoles={["admin", "agent"]}>
               <AdminQuotesPage />
             </ProtectedRoute>
           }
@@ -129,7 +138,7 @@ function AppRouter() {
         <Route
           path="admin/quotes/new"
           element={
-            <ProtectedRoute allowedRoles={["admin"]}>
+            <ProtectedRoute allowedRoles={["admin", "agent"]}>
               <AdminCreateQuotePage />
             </ProtectedRoute>
           }
@@ -137,7 +146,7 @@ function AppRouter() {
         <Route
           path="admin/quotes/:quoteId"
           element={
-            <ProtectedRoute allowedRoles={["admin"]}>
+            <ProtectedRoute allowedRoles={["admin", "agent"]}>
               <AdminQuoteDetailPage />
             </ProtectedRoute>
           }
@@ -145,7 +154,7 @@ function AppRouter() {
         <Route
           path="admin/technical-reports"
           element={
-            <ProtectedRoute allowedRoles={["admin"]}>
+            <ProtectedRoute allowedRoles={["admin", "agent"]}>
               <AdminTechnicalReportsPage />
             </ProtectedRoute>
           }
@@ -153,7 +162,7 @@ function AppRouter() {
         <Route
           path="admin/technical-reports/new"
           element={
-            <ProtectedRoute allowedRoles={["admin"]}>
+            <ProtectedRoute allowedRoles={["admin", "agent"]}>
               <AdminCreateTechnicalReportPage />
             </ProtectedRoute>
           }
@@ -161,7 +170,7 @@ function AppRouter() {
         <Route
           path="admin/technical-reports/:reportId"
           element={
-            <ProtectedRoute allowedRoles={["admin"]}>
+            <ProtectedRoute allowedRoles={["admin", "agent"]}>
               <AdminTechnicalReportDetailPage />
             </ProtectedRoute>
           }
@@ -169,7 +178,7 @@ function AppRouter() {
         <Route
           path="admin/catalog"
           element={
-            <ProtectedRoute allowedRoles={["admin"]}>
+            <ProtectedRoute allowedRoles={["admin", "agent"]}>
               <AdminCatalogPage />
             </ProtectedRoute>
           }

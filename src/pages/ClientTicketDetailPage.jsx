@@ -52,13 +52,13 @@ function AttachmentCard({ attachment, onOpen }) {
 }
 
 function MessageCard({ item, onOpenAttachment }) {
-  const isAdmin = item.senderRole === "admin";
+  const isStaff = item.senderRole === "admin" || item.senderRole === "agent";
   return (
-    <article className={`rounded-2xl border p-4 transition-colors duration-300 ${isAdmin ? "border-slate-200 bg-slate-50 dark:border-[#444444] dark:bg-[#181818]" : "border-slate-200 bg-white dark:border-[#444444] dark:bg-[#1A1A1A]"}`}>
+    <article className={`rounded-2xl border p-4 transition-colors duration-300 ${isStaff ? "border-slate-200 bg-slate-50 dark:border-[#444444] dark:bg-[#181818]" : "border-slate-200 bg-white dark:border-[#444444] dark:bg-[#1A1A1A]"}`}>
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <p className="text-sm font-semibold text-slate-900 transition-colors duration-300 dark:text-[#E0E0E0]">{item.senderName || "Sin nombre"}</p>
-          <p className="mt-1 text-xs uppercase tracking-[0.15em] text-slate-500 transition-colors duration-300 dark:text-[#888888]">{isAdmin ? "Administración" : "Cliente"}</p>
+          <p className="mt-1 text-xs uppercase tracking-[0.15em] text-slate-500 transition-colors duration-300 dark:text-[#888888]">{isStaff ? "Soporte" : "Cliente"}</p>
         </div>
         <p className="text-xs text-slate-500 transition-colors duration-300 dark:text-[#888888]">{formatDateTime(item.createdAt)}</p>
       </div>

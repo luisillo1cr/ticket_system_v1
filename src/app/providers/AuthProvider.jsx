@@ -12,6 +12,7 @@ import { onAuthStateChanged, signOut } from "firebase/auth";
 import { doc, onSnapshot } from "firebase/firestore";
 import { auth, db } from "../../config/firebase";
 import { AuthContext } from "./AuthContext";
+import { hasPermission, isAdminRole, isAgentRole, isClientRole, isStaffRole } from "../../utils/permissions";
 
 export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
@@ -80,14 +81,21 @@ export function AuthProvider({ children }) {
     await signOut(auth);
   };
 
+  const role = currentUser?.role ?? null;
+
   const value = useMemo(
     () => ({
       loading,
       currentUser,
       isAuthenticated: Boolean(currentUser),
+      isAdmin: isAdminRole(role),
+      isAgent: isAgentRole(role),
+      isClient: isClientRole(role),
+      isStaff: isStaffRole(role),
+      hasPermission: (permission) => hasPermission(role, permission),
       logout,
     }),
-    [loading, currentUser]
+    [loading, currentUser, role]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

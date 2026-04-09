@@ -131,12 +131,12 @@ function AttachmentCard({ attachment, index }) {
 }
 
 function MessageCard({ item }) {
-  const isAdmin = item.senderRole === "admin";
+  const isStaff = item.senderRole === "admin" || item.senderRole === "agent";
 
   return (
     <article
       className={`rounded-2xl border p-4 transition-colors duration-300 ${
-        isAdmin
+        isStaff
           ? "border-slate-200 bg-slate-50 dark:border-[#444444] dark:bg-[#181818]"
           : "border-slate-200 bg-white dark:border-[#444444] dark:bg-[#1A1A1A]"
       }`}
@@ -147,7 +147,7 @@ function MessageCard({ item }) {
             {item.senderName || "Sin nombre"}
           </p>
           <p className="mt-1 text-xs uppercase tracking-[0.15em] text-slate-500 transition-colors duration-300 dark:text-[#888888]">
-            {isAdmin ? "Administración" : "Cliente"}
+            {isStaff ? "Soporte" : "Cliente"}
           </p>
         </div>
 

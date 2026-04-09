@@ -230,7 +230,7 @@ export async function createTechnicalReport(payload, currentUser) {
       attachments: [],
       status: normalizeText(payload.status || "draft") || "draft",
       createdByUid: currentUser.uid,
-      createdByName: currentUser.name || currentUser.email || "Administrador",
+      createdByName: currentUser.name || currentUser.email || (currentUser.role === "agent" ? "Agente" : "Administrador"),
       createdAt: now,
       updatedAt: now,
     };
