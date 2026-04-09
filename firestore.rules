@@ -1,0 +1,178 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    function userProfileExists() {
+      return isSignedIn()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
+    function isAdmin() {
+      return userProfileExists()
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "admin";
+    }
+
+    function isClient() {
+      return userProfileExists()
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "client";
+    }
+
+    function userClientId() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.clientId;
+    }
+
+    function validAdminTicketCreate() {
+      return request.resource.data.keys().hasOnly([
+          "ticketNumber","clientId","systemId","subject","category","priority","status",
+          "description","createdByUid","createdByName","assignedToUid","assignedToName",
+          "createdAt","updatedAt","lastMessageAt"
+        ])
+        && request.resource.data.ticketNumber is string
+        && request.resource.data.clientId is string
+        && request.resource.data.systemId is string
+        && request.resource.data.subject is string
+        && request.resource.data.category is string
+        && request.resource.data.priority is string
+        && request.resource.data.status == "open"
+        && request.resource.data.description is string
+        && request.resource.data.createdByUid == request.auth.uid
+        && request.resource.data.createdByName is string
+        && request.resource.data.assignedToUid is string
+        && request.resource.data.assignedToName is string
+        && request.resource.data.createdAt is timestamp
+        && request.resource.data.updatedAt is timestamp
+        && request.resource.data.lastMessageAt is timestamp;
+    }
+
+    function validClientTicketCreate() {
+      return request.resource.data.keys().hasOnly([
+          "ticketNumber","clientId","systemId","subject","category","priority","status",
+          "description","createdByUid","createdByName","assignedToUid","assignedToName",
+          "createdAt","updatedAt","lastMessageAt"
+        ])
+        && request.resource.data.ticketNumber is string
+        && request.resource.data.clientId == userClientId()
+        && request.resource.data.systemId is string
+        && request.resource.data.subject is string
+        && request.resource.data.category is string
+        && request.resource.data.priority is string
+        && request.resource.data.status == "open"
+        && request.resource.data.description is string
+        && request.resource.data.createdByUid == request.auth.uid
+        && request.resource.data.createdByName is string
+        && request.resource.data.assignedToUid is string
+        && request.resource.data.assignedToName is string
+        && request.resource.data.createdAt is timestamp
+        && request.resource.data.updatedAt is timestamp
+        && request.resource.data.lastMessageAt is timestamp;
+    }
+
+    function validMessageCreate(ticketId) {
+      return request.resource.data.keys().hasOnly([
+          "ticketId","senderId","senderName","senderRole","message","attachments","createdAt"
+        ])
+        && request.resource.data.ticketId == ticketId
+        && request.resource.data.senderId == request.auth.uid
+        && request.resource.data.senderName is string
+        && request.resource.data.senderRole is string
+        && request.resource.data.message is string
+        && request.resource.data.attachments is list
+        && request.resource.data.createdAt is timestamp;
+    }
+
+    function ticketBelongsToCurrentClient(ticketId) {
+      return exists(/databases/$(database)/documents/tickets/$(ticketId))
+        && get(/databases/$(database)/documents/tickets/$(ticketId)).data.clientId == userClientId();
+    }
+
+    function ticketBelongsToCurrentClientNowOrAfter(ticketId) {
+      return (
+        exists(/databases/$(database)/documents/tickets/$(ticketId))
+        && get(/databases/$(database)/documents/tickets/$(ticketId)).data.clientId == userClientId()
+      ) || (
+        getAfter(/databases/$(database)/documents/tickets/$(ticketId)).data.clientId == userClientId()
+      );
+    }
+
+    function validClientTicketTouch() {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          "updatedAt",
+          "lastMessageAt"
+        ])
+        && request.resource.data.updatedAt is timestamp
+        && request.resource.data.lastMessageAt is timestamp
+        && resource.data.clientId == userClientId();
+    }
+
+    function validAdminTicketUpdate() {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          "status",
+          "updatedAt"
+        ])
+        && request.resource.data.status is string
+        && request.resource.data.updatedAt is timestamp;
+    }
+
+    match /users/{userId} {
+      allow read: if isAdmin() || isOwner(userId);
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /clients/{clientId} {
+      allow read: if isAdmin()
+        || (userProfileExists() && userClientId() == clientId);
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /systems/{systemId} {
+      allow read: if isAdmin()
+        || (userProfileExists() && resource.data.clientId == userClientId());
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /system_counters/{counterId} {
+      allow read, create, update, delete: if isAdmin() || isClient();
+    }
+
+    match /tickets/{ticketId} {
+      allow read: if isAdmin()
+        || (userProfileExists() && resource.data.clientId == userClientId());
+
+      allow create: if (isAdmin() && validAdminTicketCreate())
+        || (isClient() && validClientTicketCreate());
+
+      allow update: if (isAdmin() && validAdminTicketUpdate())
+        || (isClient() && validClientTicketTouch());
+
+      allow delete: if isAdmin();
+    }
+
+    match /ticket_messages/{messageId} {
+      allow read: if isAdmin()
+        || (
+          userProfileExists()
+          && exists(/databases/$(database)/documents/tickets/$(resource.data.ticketId))
+          && get(/databases/$(database)/documents/tickets/$(resource.data.ticketId)).data.clientId == userClientId()
+        );
+
+      allow create: if isAdmin()
+        || (
+          isClient()
+          && ticketBelongsToCurrentClientNowOrAfter(request.resource.data.ticketId)
+          && validMessageCreate(request.resource.data.ticketId)
+          && request.resource.data.senderRole == "client"
+        );
+
+      allow update, delete: if isAdmin();
+    }
+  }
+}

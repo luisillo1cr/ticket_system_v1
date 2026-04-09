@@ -1,0 +1,150 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ==========================================================================
+   Base theme tokens
+   ========================================================================== */
+
+:root {
+  color-scheme: light;
+  --app-bg: #f9fafb;
+  --app-surface: #ffffff;
+  --app-surface-muted: #f3f4f6;
+  --app-border: #e5e7eb;
+  --app-text: #0f172a;
+  --app-text-muted: #64748b;
+}
+
+html.dark {
+  color-scheme: dark;
+  --app-bg: #121212;
+  --app-surface: #1a1a1a;
+  --app-surface-muted: #181818;
+  --app-border: #444444;
+  --app-text: #e0e0e0;
+  --app-text-muted: #b0b0b0;
+}
+
+html {
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+    "Segoe UI", sans-serif;
+}
+
+body {
+  color: var(--app-text);
+  background-color: var(--app-bg);
+  -webkit-font-smoothing: antialiased;
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  transition:
+    background-color 260ms ease,
+    color 260ms ease;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+/* ==========================================================================
+   Reusable utility layers
+   ========================================================================== */
+
+@layer components {
+  .container-app {
+    @apply mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8;
+  }
+
+  .card-base {
+    @apply rounded-2xl border border-slate-200 bg-white shadow-sm transition-colors duration-300 dark:border-[#444444] dark:bg-[#1A1A1A];
+  }
+
+  .section-title {
+    @apply text-xl font-semibold tracking-tight text-slate-900 transition-colors duration-300 dark:text-[#E0E0E0];
+  }
+
+  .section-subtitle {
+    @apply text-sm text-slate-500 transition-colors duration-300 dark:text-[#B0B0B0];
+  }
+
+  .input-base {
+    @apply w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition-all duration-300 placeholder:text-slate-400 focus:border-slate-500 focus:ring-2 focus:ring-slate-200 dark:border-[#444444] dark:bg-[#121212] dark:text-[#E0E0E0] dark:placeholder:text-[#888888] dark:focus:border-[#888888] dark:focus:ring-[#444444];
+  }
+
+  .label-base {
+    @apply mb-2 block text-sm font-medium text-slate-700 transition-colors duration-300 dark:text-[#E0E0E0];
+  }
+
+  .btn-primary {
+    @apply inline-flex items-center justify-center rounded-xl bg-slate-900 px-4 py-3 text-sm font-medium text-white transition-all duration-300 hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-[#E0E0E0] dark:text-[#121212] dark:hover:bg-white;
+  }
+
+  .btn-secondary {
+    @apply inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-medium text-slate-700 transition-all duration-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-[#444444] dark:bg-[#1A1A1A] dark:text-[#E0E0E0] dark:hover:bg-[#202020];
+  }
+
+  .badge-base {
+    @apply inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium;
+  }
+
+  .badge-success {
+    @apply badge-base bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300;
+  }
+
+  .badge-warning {
+    @apply badge-base bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300;
+  }
+
+  .badge-info {
+    @apply badge-base bg-sky-100 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300;
+  }
+
+  .badge-neutral {
+    @apply badge-base bg-slate-100 text-slate-700 dark:bg-white/5 dark:text-[#B0B0B0];
+  }
+
+  .page-shell {
+    @apply min-h-screen bg-slate-50 text-slate-900 transition-colors duration-300 dark:bg-[#121212] dark:text-[#E0E0E0];
+  }
+
+  .panel-shell {
+    @apply grid min-h-screen grid-cols-1 bg-slate-50 transition-colors duration-300 lg:grid-cols-[280px_minmax(0,1fr)] dark:bg-[#121212];
+  }
+
+  .sidebar-shell {
+    @apply hidden border-r border-slate-200 bg-slate-50 transition-colors duration-300 lg:block dark:border-[#444444] dark:bg-[#121212];
+  }
+
+  .topbar-shell {
+    @apply border-b border-slate-200 bg-slate-50 transition-colors duration-300 dark:border-[#444444] dark:bg-[#121212];
+  }
+
+  .sidebar-nav-link {
+    @apply flex items-center gap-3 rounded-2xl border border-transparent px-4 py-3 text-sm font-medium text-slate-700 transition-all duration-300 dark:text-[#B0B0B0];
+  }
+
+  .sidebar-nav-link:hover {
+    @apply border-slate-200 bg-white text-slate-900 dark:border-[#444444] dark:bg-[#1A1A1A] dark:text-[#E0E0E0];
+  }
+
+  .sidebar-nav-link-active {
+    @apply border-slate-200 bg-white text-slate-900 shadow-sm dark:border-[#444444] dark:bg-[#1A1A1A] dark:text-[#E0E0E0];
+  }
+
+  .icon-button {
+    @apply inline-flex h-11 w-11 items-center justify-center rounded-xl border border-slate-300 bg-white text-slate-700 transition-all duration-300 hover:-translate-y-0.5 hover:bg-slate-50 hover:text-slate-900 dark:border-[#444444] dark:bg-[#1A1A1A] dark:text-[#E0E0E0] dark:hover:bg-[#202020] dark:hover:text-white;
+  }
+
+  .table-shell {
+    @apply overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition-colors duration-300 dark:border-[#444444] dark:bg-[#1A1A1A];
+  }
+
+  .table-head {
+    @apply bg-slate-50 text-left text-xs font-semibold uppercase tracking-[0.15em] text-slate-500 transition-colors duration-300 dark:bg-[#181818] dark:text-[#B0B0B0];
+  }
+
+  .table-cell {
+    @apply px-4 py-4 text-sm text-slate-700 transition-colors duration-300 dark:text-[#E0E0E0];
+  }
+}

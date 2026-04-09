@@ -1,0 +1,50 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    /**
+     * Authentication helpers
+     */
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isSignedIn()
+        && firestore.exists(/databases/(default)/documents/users/$(request.auth.uid))
+        && firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role == "admin";
+    }
+
+    function userClientId() {
+      return firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.clientId;
+    }
+
+    function ticketBelongsToCurrentClient(ticketId) {
+      return firestore.exists(/databases/(default)/documents/tickets/$(ticketId))
+        && firestore.get(/databases/(default)/documents/tickets/$(ticketId)).data.clientId == userClientId();
+    }
+
+    /**
+     * Ticket attachments:
+     * tickets/{ticketId}/{fileName}
+     */
+    match /tickets/{ticketId}/{fileName} {
+      allow read: if isAdmin()
+        || (
+          isSignedIn()
+          && ticketBelongsToCurrentClient(ticketId)
+        );
+
+      allow write: if isAdmin()
+        || (
+          isSignedIn()
+          && ticketBelongsToCurrentClient(ticketId)
+          && request.resource.size < 2 * 1024 * 1024
+          && request.resource.contentType.matches('image/.*')
+        );
+
+      allow delete: if isAdmin();
+    }
+  }
+}
