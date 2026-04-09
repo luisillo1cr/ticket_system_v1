@@ -3,7 +3,7 @@
  */
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { TICKET_CATEGORY_LABELS, TICKET_PRIORITY_LABELS } from "../constants/tickets";
 import { ROUTES, buildClientTicketDetailRoute } from "../constants/routes";
 import { createClientTicket } from "../services/ticketService";
@@ -16,8 +16,19 @@ import {
   validateAttachmentFiles,
 } from "../utils/attachments";
 
+const PROFILE_PREFILL_MAP = {
+  email_change: {
+    subject: "Solicitud de cambio de correo de acceso",
+    category: "request",
+    priority: "medium",
+    description:
+      "Solicito actualizar el correo asociado a mi acceso al portal. Indique por favor el nuevo correo autorizado y cualquier validación necesaria para completar el cambio.",
+  },
+};
+
 function ClientCreateTicketPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { currentUser } = useAuth();
   const fileInputRef = useRef(null);
 
@@ -63,6 +74,29 @@ function ClientCreateTicketPage() {
       }));
     }
   }, [systems, form.systemId]);
+
+  useEffect(() => {
+    const prefillKey = String(searchParams.get("reason") || "").trim().toLowerCase();
+    const prefill = PROFILE_PREFILL_MAP[prefillKey];
+
+    if (!prefill) {
+      return;
+    }
+
+    setForm((prev) => {
+      if (prev.subject || prev.description) {
+        return prev;
+      }
+
+      return {
+        ...prev,
+        subject: prefill.subject,
+        category: prefill.category,
+        priority: prefill.priority,
+        description: prefill.description,
+      };
+    });
+  }, [searchParams]);
 
   const selectedSystem = useMemo(
     () => systems.find((system) => system.id === form.systemId) || null,
@@ -135,15 +169,23 @@ function ClientCreateTicketPage() {
 
   return (
     <section className="space-y-6">
-      <header>
-        <p className="mb-2 text-xs font-semibold uppercase tracking-[0.3em] text-slate-500 transition-colors duration-300 dark:text-[#888888]">
-          Solicitar asistencia
-        </p>
-        <h2 className="section-title">Nuevo ticket</h2>
-        <p className="section-subtitle mt-2">
-          Envíe su solicitud de soporte con el mayor detalle posible y adjunte
-          evidencia desde el primer momento.
-        </p>
+      <header className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+        <div>
+          <p className="mb-2 text-xs font-semibold uppercase tracking-[0.3em] text-slate-500 transition-colors duration-300 dark:text-[#888888]">
+            Solicitar asistencia
+          </p>
+          <h2 className="section-title">Nuevo ticket</h2>
+          <p className="section-subtitle mt-2">
+            Envíe su solicitud de soporte con el mayor detalle posible y adjunte
+            evidencia desde el primer momento.
+          </p>
+        </div>
+
+        <div>
+          <button type="button" className="btn-secondary" onClick={() => navigate(ROUTES.CLIENT_PROFILE)}>
+            Volver a mi información
+          </button>
+        </div>
       </header>
 
       <article className="card-base p-6">
@@ -260,42 +302,61 @@ function ClientCreateTicketPage() {
             />
           </div>
 
-          <div>
-            <label htmlFor="clientInitialAttachments" className="label-base">
+          <div className="space-y-3">
+            <label htmlFor="attachments" className="label-base">
               Adjuntos iniciales
             </label>
-            <input
-              ref={fileInputRef}
-              id="clientInitialAttachments"
-              name="clientInitialAttachments"
-              type="file"
-              accept={ACCEPTED_ATTACHMENT_INPUT}
-              multiple
-              className="input-base file:mr-3 file:rounded-xl file:border-0 file:bg-slate-900 file:px-4 file:py-2 file:text-sm file:font-medium file:text-white dark:file:bg-[#E0E0E0] dark:file:text-[#121212]"
-              onChange={handleFileChange}
-            />
-            <p className="mt-2 text-xs text-slate-500 transition-colors duration-300 dark:text-[#888888]">
-              Puede adjuntar hasta {MAX_ATTACHMENT_FILES} archivos. Formatos:
-              imágenes, PDF, TXT, CSV, JSON, ZIP, DOC/DOCX y XLS/XLSX.
-            </p>
+
+            <div className="rounded-2xl border border-slate-200 bg-white p-4 transition-colors duration-300 dark:border-[#444444] dark:bg-[#1A1A1A]">
+              <div className="flex flex-col gap-4">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                  <label htmlFor="attachments" className="btn-secondary cursor-pointer">
+                    Elegir archivos
+                  </label>
+
+                  <input
+                    id="attachments"
+                    ref={fileInputRef}
+                    type="file"
+                    className="hidden"
+                    accept={ACCEPTED_ATTACHMENT_INPUT}
+                    multiple
+                    onChange={handleFileChange}
+                  />
+
+                  <p className="text-sm text-slate-500 transition-colors duration-300 dark:text-[#B0B0B0]">
+                    {selectedFiles.length
+                      ? `${selectedFiles.length} archivo${selectedFiles.length === 1 ? "" : "s"}`
+                      : "Sin archivos seleccionados"}
+                  </p>
+                </div>
+
+                <p className="text-xs text-slate-500 transition-colors duration-300 dark:text-[#888888]">
+                  Puede adjuntar hasta {MAX_ATTACHMENT_FILES} archivos. Formatos: imágenes, PDF, TXT,
+                  CSV, JSON, ZIP, DOC/DOCX y XLS/XLSX.
+                </p>
+              </div>
+            </div>
 
             {selectedFiles.length > 0 ? (
-              <div className="mt-3 space-y-2">
+              <div className="space-y-3">
                 {selectedFiles.map((file) => (
                   <div
                     key={`${file.name}-${file.size}`}
-                    className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700 transition-colors duration-300 dark:border-[#444444] dark:bg-[#181818] dark:text-[#E0E0E0]"
+                    className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 transition-colors duration-300 sm:flex-row sm:items-center sm:justify-between dark:border-[#444444] dark:bg-[#181818]"
                   >
                     <div className="min-w-0">
-                      <p className="truncate font-medium">{file.name}</p>
-                      <p className="mt-1 text-xs text-slate-500 dark:text-[#888888]">
+                      <p className="truncate text-sm font-medium text-slate-900 transition-colors duration-300 dark:text-[#E0E0E0]">
+                        {file.name}
+                      </p>
+                      <p className="mt-1 text-xs text-slate-500 transition-colors duration-300 dark:text-[#888888]">
                         {formatFileSize(file.size)}
                       </p>
                     </div>
 
                     <button
                       type="button"
-                      className="btn-secondary px-3 py-2"
+                      className="btn-secondary w-full sm:w-auto"
                       onClick={() => handleRemoveSelectedFile(file.name)}
                     >
                       Quitar
@@ -307,23 +368,21 @@ function ClientCreateTicketPage() {
           </div>
 
           {errorMessage ? (
-            <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700 transition-colors duration-300 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-300">
+            <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700 transition-colors duration-300 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-300">
               {errorMessage}
             </div>
           ) : null}
 
-          <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+          <div className="flex flex-col gap-3 pt-2 sm:flex-row sm:justify-end">
             <button
               type="button"
               className="btn-secondary"
               onClick={() => navigate(ROUTES.CLIENT_TICKETS)}
-              disabled={submitting}
             >
               Cancelar
             </button>
-
             <button type="submit" className="btn-primary" disabled={submitting}>
-              {submitting ? "Enviando..." : "Crear ticket"}
+              {submitting ? "Creando ticket..." : "Crear ticket"}
             </button>
           </div>
         </form>

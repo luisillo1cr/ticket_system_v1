@@ -3,6 +3,7 @@
  */
 
 import { useEffect, useMemo, useState } from "react";
+import CreatableSelectField from "../components/forms/CreatableSelectField";
 import { useLocation, useNavigate } from "react-router-dom";
 import { CATALOG_TECHNICAL_TYPES, CATALOG_TYPE_LABELS } from "../constants/catalog";
 import {
@@ -36,41 +37,51 @@ function CatalogCheckboxGroup({ title, items, selectedValues, onToggle }) {
     );
   }
 
+  const shouldScroll = items.length > 3;
+
   return (
     <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 transition-colors duration-300 dark:border-[#444444] dark:bg-[#181818]">
       <p className="mb-4 text-sm font-medium text-slate-900 transition-colors duration-300 dark:text-[#E0E0E0]">
         {title}
       </p>
 
-      <div className="grid gap-3">
-        {items.map((item) => {
-          const checked = selectedValues.includes(item.name);
+      <div className={shouldScroll ? "max-h-[248px] overflow-y-auto pr-1" : ""}>
+        <div className="grid gap-3">
+          {items.map((item) => {
+            const checked = selectedValues.includes(item.name);
 
-          return (
-            <label
-              key={item.id}
-              className="flex items-start gap-3 rounded-xl border border-slate-200 bg-white px-3 py-3 transition-colors duration-300 dark:border-[#444444] dark:bg-[#1A1A1A]"
-            >
-              <input
-                type="checkbox"
-                className="mt-1"
-                checked={checked}
-                onChange={() => onToggle(item.name)}
-              />
-              <span className="min-w-0">
-                <span className="block text-sm font-medium text-slate-900 transition-colors duration-300 dark:text-[#E0E0E0]">
-                  {item.name}
-                </span>
-                {item.description ? (
-                  <span className="mt-1 block text-xs text-slate-500 transition-colors duration-300 dark:text-[#B0B0B0]">
-                    {item.description}
+            return (
+              <label
+                key={item.id}
+                className="flex items-start gap-3 rounded-xl border border-slate-200 bg-white px-3 py-3 transition-colors duration-300 dark:border-[#444444] dark:bg-[#1A1A1A]"
+              >
+                <input
+                  type="checkbox"
+                  className="mt-1"
+                  checked={checked}
+                  onChange={() => onToggle(item.name)}
+                />
+                <span className="min-w-0">
+                  <span className="block text-sm font-medium text-slate-900 transition-colors duration-300 dark:text-[#E0E0E0]">
+                    {item.name}
                   </span>
-                ) : null}
-              </span>
-            </label>
-          );
-        })}
+                  {item.description ? (
+                    <span className="mt-1 block text-xs text-slate-500 transition-colors duration-300 dark:text-[#B0B0B0]">
+                      {item.description}
+                    </span>
+                  ) : null}
+                </span>
+              </label>
+            );
+          })}
+        </div>
       </div>
+
+      {shouldScroll ? (
+        <p className="mt-3 text-xs text-slate-500 transition-colors duration-300 dark:text-[#888888]">
+          Deslice dentro de la card para ver más elementos.
+        </p>
+      ) : null}
     </div>
   );
 }
@@ -96,61 +107,6 @@ function normalizeOptionEntries(options) {
   });
 
   return Array.from(map.values());
-}
-
-function CreatableDatalistField({
-  label,
-  name,
-  value,
-  onChange,
-  options,
-  onAddOption,
-  placeholder,
-  helperText,
-  required = false,
-}) {
-  const listId = `${name}-options`;
-  const normalizedOptions = normalizeOptionEntries(options);
-
-  const handleKeyDown = (event) => {
-    if (event.key === "Enter") {
-      event.preventDefault();
-
-      const trimmed = String(value || "").trim();
-      if (trimmed) {
-        onAddOption(trimmed);
-      }
-    }
-  };
-
-  return (
-    <div>
-      <label htmlFor={name} className="label-base">
-        {label}
-      </label>
-      <input
-        id={name}
-        name={name}
-        list={listId}
-        className="input-base"
-        value={value}
-        onChange={onChange}
-        onKeyDown={handleKeyDown}
-        placeholder={placeholder}
-        required={required}
-      />
-      <datalist id={listId}>
-        {normalizedOptions.map((option) => (
-          <option key={option.value} value={option.value} label={option.label} />
-        ))}
-      </datalist>
-      {helperText ? (
-        <p className="mt-2 text-xs text-slate-500 transition-colors duration-300 dark:text-[#888888]">
-          {helperText}
-        </p>
-      ) : null}
-    </div>
-  );
 }
 
 function AdminCreateTechnicalReportPage() {
@@ -223,7 +179,6 @@ function AdminCreateTechnicalReportPage() {
 
     return () => unsubscribe();
   }, []);
-
 
   useEffect(() => {
     const ticketSeed = location.state?.sourceTicket;
@@ -300,18 +255,12 @@ function AdminCreateTechnicalReportPage() {
 
   const modelOptions = useMemo(() => {
     const fromReports = existingReports.map((item) => item.model).filter(Boolean);
-    return normalizeOptionEntries([
-      ...fromReports,
-      ...customOptions.model,
-    ]);
+    return normalizeOptionEntries([...fromReports, ...customOptions.model]);
   }, [existingReports, customOptions.model]);
 
   const serialOptions = useMemo(() => {
     const fromReports = existingReports.map((item) => item.serialNumber).filter(Boolean);
-    return normalizeOptionEntries([
-      ...fromReports,
-      ...customOptions.serialNumber,
-    ]);
+    return normalizeOptionEntries([...fromReports, ...customOptions.serialNumber]);
   }, [existingReports, customOptions.serialNumber]);
 
   const handleChange = (event) => {
@@ -339,6 +288,22 @@ function AdminCreateTechnicalReportPage() {
     setForm((prev) => ({
       ...prev,
       [fieldName]: trimmed,
+    }));
+  };
+
+  const removeCustomOption = (fieldName, value) => {
+    const trimmed = String(value || "").trim();
+
+    setCustomOptions((prev) => ({
+      ...prev,
+      [fieldName]: prev[fieldName].filter((item) => item !== trimmed),
+    }));
+  };
+
+  const handleSelectFieldChange = (fieldName, value) => {
+    setForm((prev) => ({
+      ...prev,
+      [fieldName]: value,
     }));
   };
 
@@ -419,13 +384,15 @@ function AdminCreateTechnicalReportPage() {
 
         <form className="space-y-6" onSubmit={handleSubmit}>
           <div className="grid gap-5 md:grid-cols-2">
-            <CreatableDatalistField
+            <CreatableSelectField
               label="Cliente"
               name="clientId"
               value={form.clientId}
-              onChange={handleChange}
-              onAddOption={(value) => registerCustomOption("clientId", value)}
+              onChangeValue={(value) => handleSelectFieldChange("clientId", value)}
               options={clientOptions}
+              customOptions={customOptions.clientId}
+              onAddOption={(value) => registerCustomOption("clientId", value)}
+              onRemoveOption={(value) => removeCustomOption("clientId", value)}
               placeholder="Seleccione o escriba un cliente"
               helperText="Puede escribir un cliente y presionar Enter para agregarlo a las opciones."
               required
@@ -448,49 +415,57 @@ function AdminCreateTechnicalReportPage() {
           </div>
 
           <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
-            <CreatableDatalistField
+            <CreatableSelectField
               label="Tipo de equipo"
               name="deviceType"
               value={form.deviceType}
-              onChange={handleChange}
-              onAddOption={(value) => registerCustomOption("deviceType", value)}
+              onChangeValue={(value) => handleSelectFieldChange("deviceType", value)}
               options={deviceTypeOptions}
+              customOptions={customOptions.deviceType}
+              onAddOption={(value) => registerCustomOption("deviceType", value)}
+              onRemoveOption={(value) => removeCustomOption("deviceType", value)}
               placeholder="Laptop, Tablet, PC..."
               helperText="Enter para agregar un tipo nuevo."
               required
             />
 
-            <CreatableDatalistField
+            <CreatableSelectField
               label="Marca"
               name="brand"
               value={form.brand}
-              onChange={handleChange}
-              onAddOption={(value) => registerCustomOption("brand", value)}
+              onChangeValue={(value) => handleSelectFieldChange("brand", value)}
               options={brandOptions}
+              customOptions={customOptions.brand}
+              onAddOption={(value) => registerCustomOption("brand", value)}
+              onRemoveOption={(value) => removeCustomOption("brand", value)}
               placeholder="HP, Lenovo, Samsung..."
               helperText="Enter para agregar una marca nueva."
               required
             />
 
-            <CreatableDatalistField
+            <CreatableSelectField
               label="Modelo"
               name="model"
               value={form.model}
-              onChange={handleChange}
-              onAddOption={(value) => registerCustomOption("model", value)}
+              onChangeValue={(value) => handleSelectFieldChange("model", value)}
               options={modelOptions}
+              customOptions={customOptions.model}
+              onAddOption={(value) => registerCustomOption("model", value)}
+              onRemoveOption={(value) => removeCustomOption("model", value)}
               placeholder="Modelo del equipo"
               helperText="Enter para agregar un modelo nuevo."
               required
             />
 
-            <CreatableDatalistField
+            <CreatableSelectField
               label="Serie"
               name="serialNumber"
               value={form.serialNumber}
-              onChange={handleChange}
-              onAddOption={(value) => registerCustomOption("serialNumber", value)}
+              onChangeValue={(value) => handleSelectFieldChange("serialNumber", value)}
               options={serialOptions}
+              customOptions={customOptions.serialNumber}
+              onAddOption={(value) => registerCustomOption("serialNumber", value)}
+              onRemoveOption={(value) => removeCustomOption("serialNumber", value)}
               placeholder="Número de serie"
               helperText="Enter para guardar una serie nueva en las sugerencias."
             />
@@ -515,7 +490,7 @@ function AdminCreateTechnicalReportPage() {
               Cargando catálogo técnico...
             </div>
           ) : (
-            <div className="grid gap-5 xl:grid-cols-2">
+            <div className="grid items-start gap-5 xl:grid-cols-2">
               <CatalogCheckboxGroup
                 title={CATALOG_TYPE_LABELS.symptom}
                 items={groupedCatalog.symptom || []}

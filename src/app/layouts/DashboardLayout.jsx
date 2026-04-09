@@ -7,6 +7,7 @@ import { ROUTES } from "../../constants/routes";
 import { useAuth } from "../../hooks/useAuth";
 import ThemeToggleButton from "../../components/shared/ThemeToggleButton";
 import BackToTopButton from "../../components/shared/BackToTopButton";
+import MobileBottomNav from "../../components/navigation/MobileBottomNav";
 
 function DashboardIcon() {
   return (
@@ -63,6 +64,15 @@ function DatabaseIcon() {
   );
 }
 
+function ProfileIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <circle cx="12" cy="8" r="3.25" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M5 19a7 7 0 0 1 14 0" />
+    </svg>
+  );
+}
+
 function LogoutIcon() {
   return (
     <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
@@ -88,10 +98,32 @@ function getNavigationByRole(role) {
     return [
       { label: "Dashboard", to: ROUTES.CLIENT_DASHBOARD, icon: <DashboardIcon /> },
       { label: "Mis tickets", to: ROUTES.CLIENT_TICKETS, icon: <TicketIcon /> },
+      { label: "Mi información", to: ROUTES.CLIENT_PROFILE, icon: <ProfileIcon /> },
     ];
   }
 
   return [];
+}
+
+function getMobileHeaderByRole(role) {
+  if (role === "admin") {
+    return {
+      eyebrow: "Moonforge Digital",
+      title: "Panel de administración",
+    };
+  }
+
+  if (role === "client") {
+    return {
+      eyebrow: "Moonforge Digital",
+      title: "Portal del cliente",
+    };
+  }
+
+  return {
+    eyebrow: "Moonforge Digital",
+    title: "Panel principal",
+  };
 }
 
 function DashboardLayout() {
@@ -99,6 +131,7 @@ function DashboardLayout() {
   const { currentUser, logout } = useAuth();
 
   const navigationItems = getNavigationByRole(currentUser?.role);
+  const mobileHeader = getMobileHeaderByRole(currentUser?.role);
 
   const handleLogout = async () => {
     try {
@@ -172,16 +205,26 @@ function DashboardLayout() {
         <header className="topbar-shell">
           <div className="container-app flex min-h-[72px] items-center justify-between gap-4 py-4">
             <div className="lg:hidden">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.26em] text-slate-500 dark:text-[#888888]">
+                {mobileHeader.eyebrow}
+              </p>
+              <p className="mt-1 text-sm font-semibold text-slate-900 dark:text-[#E0E0E0]">
+                {mobileHeader.title}
+              </p>
+            </div>
+
+            <div className="lg:hidden">
               <ThemeToggleButton />
             </div>
           </div>
         </header>
 
-        <main className="container-app py-6">
+        <main className="container-app py-6 pb-32 lg:pb-6">
           <Outlet />
         </main>
       </div>
 
+      <MobileBottomNav currentUser={currentUser} onLogout={handleLogout} />
       <BackToTopButton />
     </div>
   );

@@ -1,7 +1,8 @@
 /**
  * Global back-to-top button.
  *
- * Uses the standard visual style agreed for the project.
+ * On mobile it sits above the floating bottom navigation so it does not cover
+ * the navigation actions. On desktop it keeps the standard project position.
  */
 
 import { useEffect, useState } from "react";
@@ -47,11 +48,16 @@ function BackToTopButton() {
       onClick={handleClick}
       aria-label="Volver arriba"
       title="Volver arriba"
-      className={`fixed bottom-6 right-6 z-50 h-12 w-12 rounded-2xl bg-slate-900 text-white shadow-lg transition-all duration-300 hover:bg-slate-800 ${
+      className={`fixed right-4 z-[60] h-12 w-12 rounded-2xl bg-slate-900 text-white shadow-lg transition-all duration-300 hover:bg-slate-800 dark:bg-[#2563EB] dark:hover:bg-[#1D4ED8] lg:bottom-6 lg:right-6 lg:bg-slate-900 lg:text-white lg:dark:bg-[#E0E0E0] lg:dark:text-[#121212] lg:dark:hover:bg-white ${
         visible
-          ? "pointer-events-auto translate-y-0 opacity-100"
-          : "pointer-events-none translate-y-3 opacity-0"
+          ? "pointer-events-auto bottom-28 translate-y-0 opacity-100"
+          : "pointer-events-none bottom-24 translate-y-3 opacity-0"
       }`}
+      style={{
+        bottom: visible
+          ? "calc(env(safe-area-inset-bottom, 0px) + 6.25rem)"
+          : "calc(env(safe-area-inset-bottom, 0px) + 5.5rem)",
+      }}
     >
       <span className="flex items-center justify-center">
         <ArrowUpIcon />

@@ -20,6 +20,7 @@ export const ROUTES = {
   CLIENT_DASHBOARD: "/app/client/dashboard",
   CLIENT_TICKETS: "/app/client/tickets",
   CLIENT_TICKETS_NEW: "/app/client/tickets/new",
+  CLIENT_PROFILE: "/app/client/profile",
 
   UNAUTHORIZED: "/unauthorized",
 };

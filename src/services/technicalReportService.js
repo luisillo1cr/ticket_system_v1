@@ -89,6 +89,38 @@ export function subscribeAdminTechnicalReports(onData, onError) {
   );
 }
 
+export function subscribeClientTechnicalReports(clientId, onData, onError) {
+  const normalizedClientId = normalizeText(clientId);
+
+  if (!normalizedClientId) {
+    onData([]);
+    return () => {};
+  }
+
+  const reportsRef = collection(db, "technical_reports");
+  const reportsQuery = query(reportsRef, where("clientId", "==", normalizedClientId));
+
+  return onSnapshot(
+    reportsQuery,
+    (snapshot) => {
+      const reports = snapshot.docs
+        .map(mapReportDocument)
+        .sort((left, right) => {
+          const leftTime = typeof left.updatedAt?.toMillis === "function" ? left.updatedAt.toMillis() : 0;
+          const rightTime = typeof right.updatedAt?.toMillis === "function" ? right.updatedAt.toMillis() : 0;
+          return rightTime - leftTime;
+        });
+      onData(reports);
+    },
+    (error) => {
+      console.error("Error subscribing client technical reports:", error);
+      if (onError) {
+        onError(error);
+      }
+    }
+  );
+}
+
 export function subscribeTechnicalReportById(reportId, onData, onError) {
   const reportRef = doc(db, "technical_reports", reportId);
 
@@ -280,6 +312,7 @@ export async function addTechnicalReportAttachments(reportId, files) {
     return attachments;
   });
 }
+
 
 export async function linkQuoteToTechnicalReport(reportId, quoteId) {
   const reportRef = doc(db, "technical_reports", reportId);

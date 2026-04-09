@@ -2,17 +2,35 @@
  * Admin technical report detail page.
  */
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
+import AttachmentViewerModal from "../components/shared/AttachmentViewerModal";
+import { CATALOG_TECHNICAL_TYPES, CATALOG_TYPE_LABELS } from "../constants/catalog";
 import { ROUTES } from "../constants/routes";
+import {
+  TECHNICAL_REPORT_BRANDS,
+  TECHNICAL_REPORT_DEVICE_TYPES,
+  TECHNICAL_REPORT_SPECIAL_CLIENT_OPTIONS,
+} from "../constants/technicalReports";
+import { subscribeClients } from "../services/clientService";
+import { subscribeServiceCatalog } from "../services/catalogService";
 import {
   addTechnicalReportAttachments,
   subscribeTechnicalReportById,
+  updateTechnicalReport,
 } from "../services/technicalReportService";
 import {
   formatFileSize,
   validateReportAttachmentFiles,
 } from "../utils/reportAttachments";
+
+const TECHNICAL_REPORT_STATUS_LABELS = {
+  draft: "Borrador",
+  in_progress: "En proceso",
+  completed: "Completada",
+  delivered: "Entregada",
+  archived: "Archivada",
+};
 
 function formatDateTime(value) {
   if (!value) {
@@ -26,6 +44,29 @@ function formatDateTime(value) {
     dateStyle: "medium",
     timeStyle: "short",
   }).format(date);
+}
+
+function normalizeOptionEntries(options) {
+  const map = new Map();
+
+  (options || []).forEach((item) => {
+    if (typeof item === "string") {
+      const value = item.trim();
+      if (value) {
+        map.set(value, { value, label: value });
+      }
+      return;
+    }
+
+    const value = String(item?.value ?? "").trim();
+    const label = String(item?.label ?? value).trim();
+
+    if (value) {
+      map.set(value, { value, label });
+    }
+  });
+
+  return Array.from(map.values());
 }
 
 function InfoItem({ label, value }) {
@@ -70,8 +111,8 @@ function SectionList({ items, emptyLabel = "No hay registros.", maxVisible = 3 }
   const shouldScroll = items.length > maxVisible;
 
   return (
-    <div className="flex min-h-[220px] flex-col">
-      <div className={shouldScroll ? "max-h-[220px] overflow-y-auto pr-1" : "flex-1"}>
+    <div>
+      <div className={shouldScroll ? "max-h-[220px] overflow-y-auto pr-1" : ""}>
         <ul className="grid gap-2">
           {items.map((item, index) => (
             <li
@@ -87,6 +128,69 @@ function SectionList({ items, emptyLabel = "No hay registros.", maxVisible = 3 }
       {shouldScroll ? (
         <p className="mt-2 text-xs text-slate-500 transition-colors duration-300 dark:text-[#888888]">
           Se muestran hasta 3 bloques visibles por vez. Deslice dentro de la lista para ver los demás.
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+function CatalogCheckboxGroup({ title, items, selectedValues, onToggle }) {
+  if (!items.length) {
+    return (
+      <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 transition-colors duration-300 dark:border-[#444444] dark:bg-[#181818]">
+        <p className="text-sm font-medium text-slate-900 transition-colors duration-300 dark:text-[#E0E0E0]">
+          {title}
+        </p>
+        <p className="mt-2 text-sm text-slate-500 transition-colors duration-300 dark:text-[#B0B0B0]">
+          No hay ítems cargados en el catálogo para esta categoría.
+        </p>
+      </div>
+    );
+  }
+
+  const shouldScroll = items.length > 3;
+
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 transition-colors duration-300 dark:border-[#444444] dark:bg-[#181818]">
+      <p className="mb-4 text-sm font-medium text-slate-900 transition-colors duration-300 dark:text-[#E0E0E0]">
+        {title}
+      </p>
+
+      <div className={shouldScroll ? "max-h-[248px] overflow-y-auto pr-1" : ""}>
+        <div className="grid gap-3">
+          {items.map((item) => {
+            const checked = selectedValues.includes(item.name);
+
+            return (
+              <label
+                key={item.id}
+                className="flex items-start gap-3 rounded-xl border border-slate-200 bg-white px-3 py-3 transition-colors duration-300 dark:border-[#444444] dark:bg-[#1A1A1A]"
+              >
+                <input
+                  type="checkbox"
+                  className="mt-1"
+                  checked={checked}
+                  onChange={() => onToggle(item.name)}
+                />
+                <span className="min-w-0">
+                  <span className="block text-sm font-medium text-slate-900 transition-colors duration-300 dark:text-[#E0E0E0]">
+                    {item.name}
+                  </span>
+                  {item.description ? (
+                    <span className="mt-1 block text-xs text-slate-500 transition-colors duration-300 dark:text-[#B0B0B0]">
+                      {item.description}
+                    </span>
+                  ) : null}
+                </span>
+              </label>
+            );
+          })}
+        </div>
+      </div>
+
+      {shouldScroll ? (
+        <p className="mt-3 text-xs text-slate-500 transition-colors duration-300 dark:text-[#888888]">
+          Deslice dentro de la card para ver más elementos.
         </p>
       ) : null}
     </div>
@@ -134,22 +238,50 @@ function LightbulbIcon() {
   );
 }
 
+function createFormFromReport(report) {
+  return {
+    clientId: report?.clientId || "",
+    quoteId: report?.quoteId || "",
+    deviceType: report?.deviceType || "",
+    brand: report?.brand || "",
+    model: report?.model || "",
+    serialNumber: report?.serialNumber || "",
+    receivedCondition: report?.receivedCondition || "",
+    diagnosticsSummary: report?.diagnosticsSummary || "",
+    workPerformedSummary: report?.workPerformedSummary || "",
+    recommendationsSummary: report?.recommendationsSummary || "",
+    symptoms: Array.isArray(report?.symptoms) ? report.symptoms : [],
+    diagnostics: Array.isArray(report?.diagnostics) ? report.diagnostics : [],
+    procedures: Array.isArray(report?.procedures) ? report.procedures : [],
+    materialsUsed: Array.isArray(report?.materialsUsed) ? report.materialsUsed : [],
+    recommendations: Array.isArray(report?.recommendations) ? report.recommendations : [],
+    status: report?.status || "draft",
+  };
+}
+
 function AdminTechnicalReportDetailPage() {
   const { reportId } = useParams();
   const fileInputRef = useRef(null);
 
   const [report, setReport] = useState(null);
+  const [clients, setClients] = useState([]);
+  const [catalogItems, setCatalogItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [errorMessage, setErrorMessage] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
   const [activeTab, setActiveTab] = useState("receipt");
+  const [form, setForm] = useState(createFormFromReport(null));
+  const [viewedAttachment, setViewedAttachment] = useState(null);
 
   useEffect(() => {
-    const unsubscribe = subscribeTechnicalReportById(
+    const unsubscribeReport = subscribeTechnicalReportById(
       reportId,
       (data) => {
         setReport(data);
+        setForm(createFormFromReport(data));
         setLoading(false);
       },
       () => {
@@ -158,8 +290,101 @@ function AdminTechnicalReportDetailPage() {
       }
     );
 
-    return () => unsubscribe();
+    const unsubscribeClients = subscribeClients(
+      (data) => setClients(data),
+      () => console.error("No fue posible cargar clientes para la ficha técnica.")
+    );
+
+    const unsubscribeCatalog = subscribeServiceCatalog(
+      (data) => setCatalogItems(data),
+      () => console.error("No fue posible cargar catálogo técnico para la ficha.")
+    );
+
+    return () => {
+      unsubscribeReport();
+      unsubscribeClients();
+      unsubscribeCatalog();
+    };
   }, [reportId]);
+
+  const groupedCatalog = useMemo(() => {
+    return CATALOG_TECHNICAL_TYPES.reduce((acc, type) => {
+      acc[type] = catalogItems.filter((item) => item.type === type && item.active !== false);
+      return acc;
+    }, {});
+  }, [catalogItems]);
+
+  const clientLabelById = useMemo(() => {
+    return clients.reduce((acc, client) => {
+      acc[client.id] = client.name || client.company || client.id;
+      return acc;
+    }, {});
+  }, [clients]);
+
+  const clientOptions = useMemo(() => {
+    const base = clients.map((client) => ({
+      value: client.id,
+      label: client.name || client.company || client.id,
+    }));
+
+    return normalizeOptionEntries([...base, ...TECHNICAL_REPORT_SPECIAL_CLIENT_OPTIONS]);
+  }, [clients]);
+
+  const deviceTypeOptions = useMemo(() => normalizeOptionEntries(TECHNICAL_REPORT_DEVICE_TYPES), []);
+  const brandOptions = useMemo(() => normalizeOptionEntries(TECHNICAL_REPORT_BRANDS), []);
+
+  const handleChange = (event) => {
+    const { name, value } = event.target;
+
+    setForm((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+  };
+
+  const toggleArrayItem = (fieldName, value) => {
+    setForm((prev) => {
+      const exists = prev[fieldName].includes(value);
+
+      return {
+        ...prev,
+        [fieldName]: exists
+          ? prev[fieldName].filter((item) => item !== value)
+          : [...prev[fieldName], value],
+      };
+    });
+  };
+
+  const handleResetForm = () => {
+    setForm(createFormFromReport(report));
+    setSuccessMessage("");
+    setErrorMessage("");
+  };
+
+  const handleSaveReport = async (event) => {
+    event.preventDefault();
+    setSaving(true);
+    setErrorMessage("");
+    setSuccessMessage("");
+
+    try {
+      if (!String(form.clientId || "").trim()) {
+        throw new Error("El cliente es obligatorio.");
+      }
+
+      if (!String(form.deviceType || "").trim()) {
+        throw new Error("El tipo de equipo es obligatorio.");
+      }
+
+      await updateTechnicalReport(reportId, form);
+      setSuccessMessage("La ficha técnica se actualizó correctamente.");
+    } catch (error) {
+      console.error("Error updating technical report:", error);
+      setErrorMessage(error.message || "No fue posible actualizar la ficha técnica.");
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const handleFileChange = (event) => {
     const result = validateReportAttachmentFiles(event.target.files);
@@ -175,6 +400,15 @@ function AdminTechnicalReportDetailPage() {
     setSelectedFiles(result.files);
   };
 
+  const handleRemoveSelectedFile = (fileName) => {
+    const nextFiles = selectedFiles.filter((file) => file.name !== fileName);
+    setSelectedFiles(nextFiles);
+
+    if (!nextFiles.length && fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
   const handleUploadAttachments = async (event) => {
     event.preventDefault();
 
@@ -184,10 +418,12 @@ function AdminTechnicalReportDetailPage() {
 
     setUploading(true);
     setErrorMessage("");
+    setSuccessMessage("");
 
     try {
       await addTechnicalReportAttachments(reportId, selectedFiles);
       setSelectedFiles([]);
+      setSuccessMessage("Los archivos se subieron correctamente.");
 
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
@@ -253,19 +489,33 @@ function AdminTechnicalReportDetailPage() {
         </div>
       ) : null}
 
+      {successMessage ? (
+        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-700 transition-colors duration-300 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300">
+          {successMessage}
+        </div>
+      ) : null}
+
       <article className="card-base p-6">
-        <h3 className="text-base font-semibold text-slate-900 transition-colors duration-300 dark:text-[#E0E0E0]">
-          Información general
-        </h3>
+        <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+          <div>
+            <h3 className="text-base font-semibold text-slate-900 transition-colors duration-300 dark:text-[#E0E0E0]">
+              Información general
+            </h3>
+            <p className="mt-2 text-sm text-slate-500 transition-colors duration-300 dark:text-[#B0B0B0]">
+              Vista rápida de la ficha y su estado actual.
+            </p>
+          </div>
+          <span className="badge-neutral">{TECHNICAL_REPORT_STATUS_LABELS[report.status] || report.status || "Borrador"}</span>
+        </div>
 
         <div className="mt-5 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-          <InfoItem label="Cliente" value={report.clientId} />
+          <InfoItem label="Cliente" value={clientLabelById[report.clientId] || report.clientId} />
           <InfoItem label="Cotización relacionada" value={report.quoteId} />
           <InfoItem label="Tipo de equipo" value={report.deviceType} />
           <InfoItem label="Marca" value={report.brand} />
           <InfoItem label="Modelo" value={report.model} />
           <InfoItem label="Serie" value={report.serialNumber} />
-          <InfoItem label="Estado" value={report.status || "draft"} />
+          <InfoItem label="Estado" value={TECHNICAL_REPORT_STATUS_LABELS[report.status] || report.status || "draft"} />
           <InfoItem label="Creado por" value={report.createdByName} />
           <InfoItem label="Creado" value={formatDateTime(report.createdAt)} />
           <InfoItem label="Actualizado" value={formatDateTime(report.updatedAt)} />
@@ -273,37 +523,242 @@ function AdminTechnicalReportDetailPage() {
       </article>
 
       <article className="card-base p-6">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h3 className="text-base font-semibold text-slate-900 transition-colors duration-300 dark:text-[#E0E0E0]">
+              Editar ficha técnica
+            </h3>
+            <p className="mt-2 text-sm text-slate-500 transition-colors duration-300 dark:text-[#B0B0B0]">
+              Actualice datos generales, estado y contenido técnico usando el catálogo base.
+            </p>
+          </div>
+          <button type="button" className="btn-secondary" onClick={handleResetForm}>
+            Restablecer cambios
+          </button>
+        </div>
+
+        <form className="mt-5 space-y-6" onSubmit={handleSaveReport}>
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <div>
+              <label htmlFor="technicalReportClientId" className="label-base">
+                Cliente
+              </label>
+              <input
+                id="technicalReportClientId"
+                name="clientId"
+                list="technical-report-client-options"
+                className="input-base"
+                value={form.clientId}
+                onChange={handleChange}
+                required
+              />
+              <datalist id="technical-report-client-options">
+                {clientOptions.map((option) => (
+                  <option key={option.value} value={option.value} label={option.label} />
+                ))}
+              </datalist>
+            </div>
+
+            <div>
+              <label htmlFor="technicalReportQuoteId" className="label-base">
+                Cotización relacionada
+              </label>
+              <input
+                id="technicalReportQuoteId"
+                name="quoteId"
+                className="input-base"
+                value={form.quoteId}
+                onChange={handleChange}
+              />
+            </div>
+
+            <div>
+              <label htmlFor="technicalReportDeviceType" className="label-base">
+                Tipo de equipo
+              </label>
+              <input
+                id="technicalReportDeviceType"
+                name="deviceType"
+                list="technical-report-device-options"
+                className="input-base"
+                value={form.deviceType}
+                onChange={handleChange}
+                required
+              />
+              <datalist id="technical-report-device-options">
+                {deviceTypeOptions.map((option) => (
+                  <option key={option.value} value={option.value} label={option.label} />
+                ))}
+              </datalist>
+            </div>
+
+            <div>
+              <label htmlFor="technicalReportStatus" className="label-base">
+                Estado
+              </label>
+              <select
+                id="technicalReportStatus"
+                name="status"
+                className="input-base"
+                value={form.status}
+                onChange={handleChange}
+              >
+                {Object.entries(TECHNICAL_REPORT_STATUS_LABELS).map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-3">
+            <div>
+              <label htmlFor="technicalReportBrand" className="label-base">
+                Marca
+              </label>
+              <input
+                id="technicalReportBrand"
+                name="brand"
+                list="technical-report-brand-options"
+                className="input-base"
+                value={form.brand}
+                onChange={handleChange}
+              />
+              <datalist id="technical-report-brand-options">
+                {brandOptions.map((option) => (
+                  <option key={option.value} value={option.value} label={option.label} />
+                ))}
+              </datalist>
+            </div>
+
+            <div>
+              <label htmlFor="technicalReportModel" className="label-base">
+                Modelo
+              </label>
+              <input
+                id="technicalReportModel"
+                name="model"
+                className="input-base"
+                value={form.model}
+                onChange={handleChange}
+              />
+            </div>
+
+            <div>
+              <label htmlFor="technicalReportSerial" className="label-base">
+                Serie
+              </label>
+              <input
+                id="technicalReportSerial"
+                name="serialNumber"
+                className="input-base"
+                value={form.serialNumber}
+                onChange={handleChange}
+              />
+            </div>
+          </div>
+
+          <div>
+            <label htmlFor="technicalReportReceivedCondition" className="label-base">
+              Condición de ingreso
+            </label>
+            <textarea
+              id="technicalReportReceivedCondition"
+              name="receivedCondition"
+              className="input-base min-h-[110px] resize-y"
+              value={form.receivedCondition}
+              onChange={handleChange}
+            />
+          </div>
+
+          <div className="grid items-start gap-4 lg:grid-cols-2 xl:grid-cols-3">
+            <CatalogCheckboxGroup
+              title={CATALOG_TYPE_LABELS.symptom}
+              items={groupedCatalog.symptom || []}
+              selectedValues={form.symptoms}
+              onToggle={(value) => toggleArrayItem("symptoms", value)}
+            />
+            <CatalogCheckboxGroup
+              title={CATALOG_TYPE_LABELS.diagnostic}
+              items={groupedCatalog.diagnostic || []}
+              selectedValues={form.diagnostics}
+              onToggle={(value) => toggleArrayItem("diagnostics", value)}
+            />
+            <CatalogCheckboxGroup
+              title={CATALOG_TYPE_LABELS.procedure}
+              items={groupedCatalog.procedure || []}
+              selectedValues={form.procedures}
+              onToggle={(value) => toggleArrayItem("procedures", value)}
+            />
+            <CatalogCheckboxGroup
+              title={CATALOG_TYPE_LABELS.material}
+              items={groupedCatalog.material || []}
+              selectedValues={form.materialsUsed}
+              onToggle={(value) => toggleArrayItem("materialsUsed", value)}
+            />
+            <CatalogCheckboxGroup
+              title={CATALOG_TYPE_LABELS.recommendation}
+              items={groupedCatalog.recommendation || []}
+              selectedValues={form.recommendations}
+              onToggle={(value) => toggleArrayItem("recommendations", value)}
+            />
+          </div>
+
+          <div className="grid gap-4 lg:grid-cols-3">
+            <div>
+              <label htmlFor="technicalReportDiagnosticsSummary" className="label-base">
+                Resumen de diagnóstico
+              </label>
+              <textarea
+                id="technicalReportDiagnosticsSummary"
+                name="diagnosticsSummary"
+                className="input-base min-h-[130px] resize-y"
+                value={form.diagnosticsSummary}
+                onChange={handleChange}
+              />
+            </div>
+            <div>
+              <label htmlFor="technicalReportWorkPerformedSummary" className="label-base">
+                Trabajo realizado
+              </label>
+              <textarea
+                id="technicalReportWorkPerformedSummary"
+                name="workPerformedSummary"
+                className="input-base min-h-[130px] resize-y"
+                value={form.workPerformedSummary}
+                onChange={handleChange}
+              />
+            </div>
+            <div>
+              <label htmlFor="technicalReportRecommendationsSummary" className="label-base">
+                Recomendaciones finales
+              </label>
+              <textarea
+                id="technicalReportRecommendationsSummary"
+                name="recommendationsSummary"
+                className="input-base min-h-[130px] resize-y"
+                value={form.recommendationsSummary}
+                onChange={handleChange}
+              />
+            </div>
+          </div>
+
+          <div className="flex justify-end">
+            <button type="submit" className="btn-primary" disabled={saving}>
+              {saving ? "Guardando..." : "Guardar ficha técnica"}
+            </button>
+          </div>
+        </form>
+      </article>
+
+      <article className="card-base p-6">
         <div className="mb-5 flex flex-wrap gap-3">
-          <TabButton
-            active={activeTab === "receipt"}
-            onClick={() => setActiveTab("receipt")}
-            label="Ingreso"
-            icon={<ReceiptIcon />}
-          />
-          <TabButton
-            active={activeTab === "diagnostics"}
-            onClick={() => setActiveTab("diagnostics")}
-            label="Diagnóstico"
-            icon={<SearchIcon />}
-          />
-          <TabButton
-            active={activeTab === "procedures"}
-            onClick={() => setActiveTab("procedures")}
-            label="Procedimientos"
-            icon={<WrenchIcon />}
-          />
-          <TabButton
-            active={activeTab === "materials"}
-            onClick={() => setActiveTab("materials")}
-            label="Materiales"
-            icon={<CubeIcon />}
-          />
-          <TabButton
-            active={activeTab === "recommendations"}
-            onClick={() => setActiveTab("recommendations")}
-            label="Recomendaciones"
-            icon={<LightbulbIcon />}
-          />
+          <TabButton active={activeTab === "receipt"} onClick={() => setActiveTab("receipt")} label="Ingreso" icon={<ReceiptIcon />} />
+          <TabButton active={activeTab === "diagnostics"} onClick={() => setActiveTab("diagnostics")} label="Diagnóstico" icon={<SearchIcon />} />
+          <TabButton active={activeTab === "procedures"} onClick={() => setActiveTab("procedures")} label="Procedimientos" icon={<WrenchIcon />} />
+          <TabButton active={activeTab === "materials"} onClick={() => setActiveTab("materials")} label="Materiales" icon={<CubeIcon />} />
+          <TabButton active={activeTab === "recommendations"} onClick={() => setActiveTab("recommendations")} label="Recomendaciones" icon={<LightbulbIcon />} />
         </div>
 
         {activeTab === "receipt" ? (
@@ -438,9 +893,22 @@ function AdminTechnicalReportDetailPage() {
               {selectedFiles.map((file) => (
                 <div
                   key={`${file.name}-${file.size}`}
-                  className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700 transition-colors duration-300 dark:border-[#444444] dark:bg-[#181818] dark:text-[#E0E0E0]"
+                  className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700 transition-colors duration-300 dark:border-[#444444] dark:bg-[#181818] dark:text-[#E0E0E0]"
                 >
-                  {file.name} · {formatFileSize(file.size)}
+                  <div className="min-w-0">
+                    <p className="truncate font-medium">{file.name}</p>
+                    <p className="mt-1 text-xs text-slate-500 dark:text-[#888888]">
+                      {formatFileSize(file.size)}
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    className="btn-secondary px-3 py-2"
+                    onClick={() => handleRemoveSelectedFile(file.name)}
+                  >
+                    Quitar
+                  </button>
                 </div>
               ))}
             </div>
@@ -462,14 +930,14 @@ function AdminTechnicalReportDetailPage() {
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
               {attachments.map((attachment, index) => {
                 const isImage = String(attachment.contentType || "").startsWith("image/");
+                const isPdf = String(attachment.contentType || "") === "application/pdf";
 
                 return (
-                  <a
+                  <button
                     key={`${attachment.path || attachment.url || index}`}
-                    href={attachment.url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="block overflow-hidden rounded-2xl border border-slate-200 bg-white transition hover:shadow-md dark:border-[#444444] dark:bg-[#1A1A1A]"
+                    type="button"
+                    onClick={() => setViewedAttachment(attachment)}
+                    className="block overflow-hidden rounded-2xl border border-slate-200 bg-white text-left transition hover:shadow-md dark:border-[#444444] dark:bg-[#1A1A1A]"
                   >
                     {isImage ? (
                       <img
@@ -480,7 +948,7 @@ function AdminTechnicalReportDetailPage() {
                       />
                     ) : (
                       <div className="flex h-44 items-center justify-center bg-slate-50 text-sm font-medium text-slate-500 transition-colors duration-300 dark:bg-[#181818] dark:text-[#B0B0B0]">
-                        PDF / Archivo
+                        {isPdf ? "PDF" : "Archivo"}
                       </div>
                     )}
 
@@ -492,13 +960,17 @@ function AdminTechnicalReportDetailPage() {
                         {formatFileSize(attachment.size)}
                       </p>
                     </div>
-                  </a>
+                  </button>
                 );
               })}
             </div>
           )}
         </div>
       </article>
+
+      {viewedAttachment ? (
+        <AttachmentViewerModal attachment={viewedAttachment} onClose={() => setViewedAttachment(null)} />
+      ) : null}
 
       <div>
         <Link to={ROUTES.ADMIN_TECHNICAL_REPORTS} className="btn-secondary">

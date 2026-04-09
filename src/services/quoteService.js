@@ -15,6 +15,7 @@ import {
   runTransaction,
   setDoc,
   updateDoc,
+  where,
   writeBatch,
 } from "firebase/firestore";
 import { db } from "../config/firebase";
@@ -186,6 +187,38 @@ export function subscribeAdminQuotes(onData, onError) {
     },
     (error) => {
       console.error("Error subscribing quotes:", error);
+      if (onError) {
+        onError(error);
+      }
+    }
+  );
+}
+
+export function subscribeClientQuotes(clientId, onData, onError) {
+  const normalizedClientId = normalizeText(clientId);
+
+  if (!normalizedClientId) {
+    onData([]);
+    return () => {};
+  }
+
+  const quotesRef = collection(db, "quotes");
+  const quotesQuery = query(quotesRef, where("clientId", "==", normalizedClientId));
+
+  return onSnapshot(
+    quotesQuery,
+    (snapshot) => {
+      const quotes = snapshot.docs
+        .map(mapQuoteDocument)
+        .sort((left, right) => {
+          const leftTime = typeof left.updatedAt?.toMillis === "function" ? left.updatedAt.toMillis() : 0;
+          const rightTime = typeof right.updatedAt?.toMillis === "function" ? right.updatedAt.toMillis() : 0;
+          return rightTime - leftTime;
+        });
+      onData(quotes);
+    },
+    (error) => {
+      console.error("Error subscribing client quotes:", error);
       if (onError) {
         onError(error);
       }
@@ -460,15 +493,12 @@ export async function applyPricingModeToQuoteLineItems(
       return;
     }
 
-    const lineItemRef = doc(db, "quotes", quoteId, "lineItems", item.id);
-
-    batch.update(lineItemRef, {
+    batch.update(doc(db, "quotes", quoteId, "lineItems", item.id), {
       type: nextType,
       unitPrice: nextUnitPrice,
       total: nextTotal,
       updatedAt: now,
     });
-
     updatedCount += 1;
   });
 
@@ -478,9 +508,9 @@ export async function applyPricingModeToQuoteLineItems(
 
   await batch.commit();
   await recalculateQuoteTotals(quoteId);
-
   return updatedCount;
 }
+
 
 export async function deleteQuoteLineItem(quoteId, lineItemId) {
   const lineItemRef = doc(db, "quotes", quoteId, "lineItems", lineItemId);

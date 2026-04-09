@@ -20,7 +20,7 @@ import {
   sendPasswordResetEmail,
   signOut,
 } from "firebase/auth";
-import { db, secondaryAuth } from "../config/firebase";
+import { auth, db, secondaryAuth } from "../config/firebase";
 
 function normalizeText(value) {
   return String(value ?? "").trim();
@@ -216,6 +216,33 @@ export async function updateClient(clientId, payload) {
   });
 }
 
+export async function updateOwnClientProfile(clientId, payload) {
+  const normalizedClientId = normalizeText(clientId);
+  if (!normalizedClientId) throw new Error("El cliente asociado es obligatorio.");
+
+  await updateDoc(doc(db, "clients", normalizedClientId), {
+    contactPerson: normalizeText(payload.contactPerson),
+    phoneType: normalizeText(payload.phoneType || "national") || "national",
+    phone: normalizeText(payload.phone),
+    idType: normalizeText(payload.idType || "national") || "national",
+    idNumber: normalizeText(payload.idNumber),
+    updatedAt: Timestamp.now(),
+  });
+}
+
+export async function updateOwnAccessProfile(payload) {
+  const currentAuthUser = auth.currentUser;
+
+  if (!currentAuthUser?.uid) {
+    throw new Error("Debe iniciar sesión para actualizar su perfil.");
+  }
+
+  await updateDoc(doc(db, "users", currentAuthUser.uid), {
+    name: normalizeText(payload.name),
+    updatedAt: Timestamp.now(),
+  });
+}
+
 export async function deleteClientCascade(clientId) {
   const normalizedClientId = normalizeText(clientId);
   if (!normalizedClientId) throw new Error("Client ID is required.");
@@ -318,5 +345,7 @@ export async function updateClientAccessUser(userId, payload) {
 export async function sendClientAccessResetEmail(email) {
   const normalizedEmail = normalizeText(email).toLowerCase();
   if (!normalizedEmail) throw new Error("El correo es obligatorio.");
+
   await sendPasswordResetEmail(secondaryAuth, normalizedEmail);
+  await signOut(secondaryAuth);
 }

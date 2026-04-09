@@ -153,9 +153,6 @@ function ClientDashboardPage() {
           <Link to={ROUTES.CLIENT_TICKETS} className="btn-secondary">
             Ver tickets
           </Link>
-          <Link to={ROUTES.CLIENT_TICKETS_NEW} className="btn-primary">
-            Solicitar asistencia
-          </Link>
         </div>
       </header>
 

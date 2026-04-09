@@ -10,6 +10,7 @@ import ProtectedRoute from "../../components/shared/ProtectedRoute";
 import LoginPage from "../../pages/LoginPage";
 import AdminDashboardPage from "../../pages/AdminDashboardPage";
 import ClientDashboardPage from "../../pages/ClientDashboardPage";
+import ClientProfilePage from "../../pages/ClientProfilePage";
 import UnauthorizedPage from "../../pages/UnauthorizedPage";
 import NotFoundPage from "../../pages/NotFoundPage";
 import AdminTicketsPage from "../../pages/AdminTicketsPage";
@@ -203,6 +204,14 @@ function AppRouter() {
           element={
             <ProtectedRoute allowedRoles={["client"]}>
               <ClientTicketDetailPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="client/profile"
+          element={
+            <ProtectedRoute allowedRoles={["client"]}>
+              <ClientProfilePage />
             </ProtectedRoute>
           }
         />
