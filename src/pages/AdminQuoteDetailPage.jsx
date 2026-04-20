@@ -21,7 +21,6 @@ import {
   QUOTE_STATUS_LABELS,
 } from "../constants/quotes";
 import { ROUTES } from "../constants/routes";
-import { useAuth } from "../hooks/useAuth";
 import { subscribeClients } from "../services/clientService";
 import { subscribeServiceCatalog } from "../services/catalogService";
 import {
@@ -35,6 +34,8 @@ import {
   updateQuoteHeader,
   updateQuoteLineItem,
 } from "../services/quoteService";
+import { useAuth } from "../hooks/useAuth";
+import { canDeleteQuoteLineItems, canDeleteQuotes } from "../utils/permissions";
 
 const BRAND_NAME = "Moonforge Digital";
 const BRAND_PHONE = "+506 6036 4823";
@@ -334,14 +335,14 @@ async function exportNodeToPdf(node, fileName) {
 function AdminQuoteDetailPage() {
   const { quoteId } = useParams();
   const navigate = useNavigate();
-  const { currentUser, hasPermission } = useAuth();
-  const canDeleteQuote = hasPermission("quotes.delete");
-  const canDeleteLineItems = hasPermission("quotes.lineItems.delete");
+  const { currentUser } = useAuth();
   const previewRef = useRef(null);
   const logoInputRef = useRef(null);
 
   const [quote, setQuote] = useState(null);
   const [lineItems, setLineItems] = useState([]);
+  const canDeleteLineItems = canDeleteQuoteLineItems(currentUser);
+  const canDeleteCurrentQuote = canDeleteQuotes(currentUser);
   const [catalogItems, setCatalogItems] = useState([]);
   const [clients, setClients] = useState([]);
   const [headerForm, setHeaderForm] = useState({
@@ -640,6 +641,11 @@ function AdminQuoteDetailPage() {
   };
 
   const handleDeleteLineItem = async (lineItemId) => {
+    if (!canDeleteLineItems) {
+      setErrorMessage("Solo un administrador puede eliminar line items.");
+      return;
+    }
+
     setDeletingLineItemId(lineItemId);
     setErrorMessage("");
 
@@ -684,6 +690,11 @@ function AdminQuoteDetailPage() {
   };
 
   const handleDeleteQuote = async () => {
+    if (!canDeleteCurrentQuote) {
+      setErrorMessage("Solo un administrador puede eliminar cotizaciones.");
+      return;
+    }
+
     setDeletingQuote(true);
     setErrorMessage("");
 
@@ -1169,16 +1180,16 @@ function AdminQuoteDetailPage() {
                   </div>
 
                   <div className="mt-4 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-                    {canDeleteLineItems ? (
-                      <button
-                        type="button"
-                        className="btn-secondary"
-                        onClick={() => handleDeleteLineItem(item.id)}
-                        disabled={deletingLineItemId === item.id}
-                      >
-                        {deletingLineItemId === item.id ? "Eliminando..." : "Eliminar"}
-                      </button>
-                    ) : null}
+{canDeleteLineItems ? (
+                    <button
+                      type="button"
+                      className="btn-secondary"
+                      onClick={() => handleDeleteLineItem(item.id)}
+                      disabled={deletingLineItemId === item.id}
+                    >
+                      {deletingLineItemId === item.id ? "Eliminando..." : "Eliminar"}
+                    </button>
+                  ) : null}
 
                     <button
                       type="button"
@@ -1587,7 +1598,7 @@ function AdminQuoteDetailPage() {
         </div>
       </article>
 
-      {canDeleteQuote ? (
+      {canDeleteCurrentQuote ? (
         <article className="rounded-2xl border border-rose-200 bg-rose-50 p-6 dark:border-rose-500/30 dark:bg-rose-500/10">
           <h3 className="text-base font-semibold text-rose-700 dark:text-rose-300">
             Zona de eliminación
@@ -1624,12 +1635,12 @@ function AdminQuoteDetailPage() {
           </div>
         </article>
       ) : (
-        <article className="rounded-2xl border border-slate-200 bg-slate-50 p-6 dark:border-[#444444] dark:bg-[#161616]">
-          <h3 className="text-base font-semibold text-slate-900 dark:text-[#E0E0E0]">
-            Acciones sensibles restringidas
+        <article className="rounded-2xl border border-amber-200 bg-amber-50 p-6 dark:border-amber-500/30 dark:bg-amber-500/10">
+          <h3 className="text-base font-semibold text-amber-700 dark:text-amber-300">
+            Acciones restringidas para agente
           </h3>
-          <p className="mt-2 text-sm text-slate-600 dark:text-[#B0B0B0]">
-            La cuenta {currentUser?.role === "agent" ? "Agente" : "actual"} puede crear, editar y exportar cotizaciones, pero no eliminar cotizaciones ni line items.
+          <p className="mt-2 text-sm text-amber-700 dark:text-amber-300">
+            Puede editar la cotización y exportarla, pero no eliminarla ni borrar line items existentes.
           </p>
         </article>
       )}

@@ -3,7 +3,6 @@
  */
 
 import { useEffect, useMemo, useState } from "react";
-import { useAuth } from "../hooks/useAuth";
 import { CATALOG_TYPE_LABELS } from "../constants/catalog";
 import {
   createCatalogItem,
@@ -11,6 +10,8 @@ import {
   subscribeServiceCatalog,
   updateCatalogItem,
 } from "../services/catalogService";
+import { useAuth } from "../hooks/useAuth";
+import { canResetServiceCatalog } from "../utils/permissions";
 
 const INITIAL_FORM = {
   type: "symptom",
@@ -83,8 +84,7 @@ function ToggleSwitch({ checked, onChange, label = "Activo" }) {
 }
 
 function AdminCatalogPage() {
-  const { currentUser, hasPermission } = useAuth();
-  const canResetCatalog = hasPermission("catalog.resetBase");
+  const { currentUser } = useAuth();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [seeding, setSeeding] = useState(false);
@@ -93,6 +93,7 @@ function AdminCatalogPage() {
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
   const [form, setForm] = useState(INITIAL_FORM);
+  const canSeedCatalog = canResetServiceCatalog(currentUser);
 
   useEffect(() => {
     const unsubscribe = subscribeServiceCatalog(
@@ -163,6 +164,11 @@ function AdminCatalogPage() {
   };
 
   const handleSeedCatalog = async () => {
+    if (!canSeedCatalog) {
+      setErrorMessage("Solo un administrador puede restablecer el catálogo base.");
+      return;
+    }
+
     setSeeding(true);
     setErrorMessage("");
     setSuccessMessage("");
@@ -243,9 +249,6 @@ function AdminCatalogPage() {
           <p className="section-subtitle mt-2">
             Base reutilizable de síntomas, diagnósticos, procedimientos, materiales, recomendaciones y servicios.
           </p>
-          <p className="mt-3 text-xs font-semibold uppercase tracking-[0.22em] text-slate-500 transition-colors duration-300 dark:text-[#888888]">
-            Sesión actual: {currentUser?.role === "agent" ? "Agente" : "Administrador"}
-          </p>
         </div>
 
         <div className="flex flex-col gap-3 sm:flex-row">
@@ -257,7 +260,7 @@ function AdminCatalogPage() {
           >
             Nuevo ítem
           </button>
-          {canResetCatalog ? (
+          {canSeedCatalog ? (
             <button
               type="button"
               className="btn-primary"
@@ -273,6 +276,12 @@ function AdminCatalogPage() {
       {errorMessage ? (
         <article className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700 transition-colors duration-300 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-300">
           {errorMessage}
+        </article>
+      ) : null}
+
+      {!canSeedCatalog ? (
+        <article className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-700 transition-colors duration-300 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300">
+          Como agente puede crear y editar ítems, pero no restablecer el catálogo base.
         </article>
       ) : null}
 

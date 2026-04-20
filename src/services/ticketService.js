@@ -62,6 +62,22 @@ function sanitizeFileName(fileName) {
   return String(fileName || "archivo").replace(/[^a-zA-Z0-9._-]/g, "_");
 }
 
+function getSupportRole(currentUser) {
+  return currentUser?.role === "agent" ? "agent" : "admin";
+}
+
+function getSupportFallbackName(currentUser) {
+  return currentUser?.role === "agent" ? "Agente" : "Administrador";
+}
+
+function getTicketTypeFallback(currentUser) {
+  return currentUser?.role === "client" ? "request" : "task";
+}
+
+function getMessageFallbackName(senderRole) {
+  return senderRole === "client" ? "Cliente" : senderRole === "agent" ? "Agente" : "Administrador";
+}
+
 async function uploadTicketAttachments(ticketId, files) {
   const normalizedFiles = Array.from(files || []);
   if (!normalizedFiles.length) return [];
@@ -292,13 +308,11 @@ async function createTicketInternal(ticketData, currentUser, senderRole, files =
 
   const attachments = await uploadTicketAttachments(createdTicket.id, files);
   const initialMessageRef = doc(messagesCollectionRef);
-  const fallbackSenderName =
-    senderRole === "client" ? "Cliente" : senderRole === "agent" ? "Agente" : "Administrador";
 
   await setDoc(initialMessageRef, {
     ticketId: createdTicket.id,
     senderId: currentUser.uid,
-    senderName: currentUser.name || currentUser.email || fallbackSenderName,
+    senderName: currentUser.name || currentUser.email || getMessageFallbackName(senderRole),
     senderRole,
     message: normalizeText(ticketData.description),
     attachments,
@@ -318,11 +332,14 @@ async function createTicketInternal(ticketData, currentUser, senderRole, files =
 export async function createAdminTicket(payload, currentUser, files = []) {
   if (!currentUser?.uid) throw new Error("Authenticated user is required to create a ticket.");
 
-  const staffRole = currentUser.role === "agent" ? "agent" : "admin";
-  const fallbackName = staffRole === "agent" ? "Agente" : "Administrador";
+  const assignedToUid = normalizeText(payload.assignedToUid) || currentUser.uid;
+  const assignedToName = normalizeText(payload.assignedToName) || currentUser.name || currentUser.email || getSupportFallbackName(currentUser);
 
   return createTicketInternal(
     {
+      type: normalizeText(payload.type) || getTicketTypeFallback(currentUser),
+      parentTicketId: normalizeText(payload.parentTicketId),
+      parentTicketNumber: normalizeText(payload.parentTicketNumber),
       clientId: normalizeText(payload.clientId),
       systemId: normalizeText(payload.systemId),
       subject: normalizeText(payload.subject),
@@ -331,12 +348,12 @@ export async function createAdminTicket(payload, currentUser, files = []) {
       status: "open",
       description: normalizeText(payload.description),
       createdByUid: currentUser.uid,
-      createdByName: currentUser.name || currentUser.email || fallbackName,
-      assignedToUid: currentUser.uid,
-      assignedToName: currentUser.name || currentUser.email || fallbackName,
+      createdByName: currentUser.name || currentUser.email || getSupportFallbackName(currentUser),
+      assignedToUid,
+      assignedToName,
     },
     currentUser,
-    staffRole,
+    getSupportRole(currentUser),
     files
   );
 }
@@ -348,6 +365,9 @@ export async function createClientTicket(payload, currentUser, files = []) {
 
   return createTicketInternal(
     {
+      type: normalizeText(payload.type) || getTicketTypeFallback(currentUser),
+      parentTicketId: normalizeText(payload.parentTicketId),
+      parentTicketNumber: normalizeText(payload.parentTicketNumber),
       clientId: currentUser.clientId,
       systemId: normalizeText(payload.systemId),
       subject: normalizeText(payload.subject),
@@ -384,13 +404,10 @@ async function addTicketMessageInternal(ticketId, message, currentUser, senderRo
     const ticketSnap = await transaction.get(ticketRef);
     if (!ticketSnap.exists()) throw new Error("Ticket not found.");
 
-    const fallbackSenderName =
-      senderRole === "client" ? "Cliente" : senderRole === "agent" ? "Agente" : "Administrador";
-
     const messageData = {
       ticketId,
       senderId: currentUser.uid,
-      senderName: currentUser.name || currentUser.email || fallbackSenderName,
+      senderName: currentUser.name || currentUser.email || getMessageFallbackName(senderRole),
       senderRole,
       message: trimmedMessage,
       attachments,
@@ -405,8 +422,7 @@ async function addTicketMessageInternal(ticketId, message, currentUser, senderRo
 }
 
 export function addAdminTicketMessage(ticketId, message, currentUser, files = []) {
-  const staffRole = currentUser?.role === "agent" ? "agent" : "admin";
-  return addTicketMessageInternal(ticketId, message, currentUser, staffRole, files);
+  return addTicketMessageInternal(ticketId, message, currentUser, getSupportRole(currentUser), files);
 }
 
 export function addClientTicketMessage(ticketId, message, currentUser, files = []) {

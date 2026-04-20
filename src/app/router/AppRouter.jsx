@@ -13,6 +13,7 @@ import ClientDashboardPage from "../../pages/ClientDashboardPage";
 import ClientProfilePage from "../../pages/ClientProfilePage";
 import UnauthorizedPage from "../../pages/UnauthorizedPage";
 import NotFoundPage from "../../pages/NotFoundPage";
+import AdminBoardPage from "../../pages/AdminBoardPage";
 import AdminTicketsPage from "../../pages/AdminTicketsPage";
 import AdminTicketDetailPage from "../../pages/AdminTicketDetailPage";
 import AdminCreateTicketPage from "../../pages/AdminCreateTicketPage";
@@ -30,6 +31,7 @@ import AdminClientsPage from "../../pages/AdminClientsPage";
 import AdminUsersPage from "../../pages/AdminUsersPage";
 import { ROUTES } from "../../constants/routes";
 import { useAuth } from "../../hooks/useAuth";
+import { isStaffRole } from "../../utils/permissions";
 import LoadingScreen from "../../components/shared/LoadingScreen";
 
 function AppIndexRedirect() {
@@ -39,7 +41,7 @@ function AppIndexRedirect() {
     return <LoadingScreen />;
   }
 
-  if (currentUser?.role === "admin" || currentUser?.role === "agent") {
+  if (isStaffRole(currentUser)) {
     return <Navigate to={ROUTES.ADMIN_DASHBOARD} replace />;
   }
 
@@ -88,6 +90,14 @@ function AppRouter() {
           }
         />
         <Route
+          path="admin/board"
+          element={
+            <ProtectedRoute allowedRoles={["admin", "agent"]}>
+              <AdminBoardPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="admin/tickets"
           element={
             <ProtectedRoute allowedRoles={["admin", "agent"]}>
@@ -116,14 +126,6 @@ function AppRouter() {
           element={
             <ProtectedRoute allowedRoles={["admin", "agent"]}>
               <AdminClientsPage />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="admin/users"
-          element={
-            <ProtectedRoute allowedRoles={["admin"]}>
-              <AdminUsersPage />
             </ProtectedRoute>
           }
         />
@@ -180,6 +182,14 @@ function AppRouter() {
           element={
             <ProtectedRoute allowedRoles={["admin", "agent"]}>
               <AdminCatalogPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="admin/users"
+          element={
+            <ProtectedRoute allowedRoles={["admin"]}>
+              <AdminUsersPage />
             </ProtectedRoute>
           }
         />

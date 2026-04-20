@@ -1,5 +1,8 @@
 /**
  * Main authenticated application layout.
+ *
+ * Preserves the existing responsive shell and adds the new Board route
+ * to desktop navigation for staff roles.
  */
 
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
@@ -14,6 +17,14 @@ function DashboardIcon() {
   return (
     <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
       <path strokeLinecap="round" strokeLinejoin="round" d="M3 13.5h8.25V3H3v10.5ZM12.75 21H21V10.5h-8.25V21ZM12.75 3H21v4.5h-8.25V3ZM3 16.5h8.25V21H3v-4.5Z" />
+    </svg>
+  );
+}
+
+function BoardIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 6h4.5v12H4.5V6Zm5.25 3h4.5v9h-4.5V9ZM15 12h4.5v6H15v-6Z" />
     </svg>
   );
 }
@@ -98,6 +109,7 @@ function getNavigationByRole(role) {
   if (isStaffRole(role)) {
     const items = [
       { label: "Dashboard", to: ROUTES.ADMIN_DASHBOARD, icon: <DashboardIcon /> },
+      { label: "Board", to: ROUTES.ADMIN_BOARD, icon: <BoardIcon /> },
       { label: "Tickets", to: ROUTES.ADMIN_TICKETS, icon: <TicketIcon /> },
       { label: "Clientes", to: ROUTES.ADMIN_CLIENTS, icon: <ClientsIcon /> },
       { label: "Cotizaciones", to: ROUTES.ADMIN_QUOTES, icon: <QuoteIcon /> },
@@ -106,11 +118,7 @@ function getNavigationByRole(role) {
     ];
 
     if (isAdminRole(role)) {
-      items.splice(3, 0, {
-        label: "Equipo y roles",
-        to: ROUTES.ADMIN_USERS,
-        icon: <TeamIcon />,
-      });
+      items.push({ label: "Equipo y roles", to: ROUTES.ADMIN_USERS, icon: <TeamIcon /> });
     }
 
     return items;
@@ -128,17 +136,10 @@ function getNavigationByRole(role) {
 }
 
 function getMobileHeaderByRole(role) {
-  if (role === "admin") {
+  if (isStaffRole(role)) {
     return {
       eyebrow: "Moonforge Digital",
       title: "Panel de administración",
-    };
-  }
-
-  if (role === "agent") {
-    return {
-      eyebrow: "Moonforge Digital",
-      title: "Panel operativo",
     };
   }
 
@@ -173,14 +174,14 @@ function DashboardLayout() {
 
   return (
     <div className="panel-shell items-start">
-      <aside className="sidebar-shell sticky top-0 h-screen overflow-y-auto">
+      <aside className="sidebar-shell sticky top-0 hidden h-screen overflow-y-auto lg:block">
         <div className="flex min-h-screen flex-col p-6">
           <div className="mb-8">
             <p className="mb-2 text-xs font-semibold uppercase tracking-[0.3em] text-slate-500 transition-colors duration-300 dark:text-[#888888]">
               Moonforge Digital
             </p>
             <h2 className="text-lg font-semibold text-slate-900 transition-colors duration-300 dark:text-[#E0E0E0]">
-              Panel principal
+              {isStaffRole(currentUser?.role) ? "Panel principal" : "Portal del cliente"}
             </h2>
           </div>
 
@@ -207,7 +208,7 @@ function DashboardLayout() {
                     {currentUser?.name || currentUser?.email || "Usuario autenticado"}
                   </p>
                   <p className="mt-1 text-xs uppercase tracking-[0.2em] text-slate-500 transition-colors duration-300 dark:text-[#888888]">
-                    {getRoleLabel(currentUser?.role)}
+                    {getRoleLabel(currentUser)}
                   </p>
                 </div>
 
@@ -230,7 +231,7 @@ function DashboardLayout() {
         </div>
       </aside>
 
-      <div className="min-w-0">
+      <div className="min-w-0 flex-1">
         <header className="topbar-shell">
           <div className="container-app flex min-h-[72px] items-center justify-between gap-4 py-4">
             <div className="lg:hidden">

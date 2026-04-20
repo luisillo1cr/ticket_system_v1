@@ -18,7 +18,7 @@ import {
   updateSystem,
 } from "../services/clientService";
 import { useAuth } from "../hooks/useAuth";
-import { getRoleLabel } from "../utils/permissions";
+import { canDeleteClients, canDeleteSystems, canManageClientAccess } from "../utils/permissions";
 
 const CLIENT_STATUS_LABELS = {
   active: "Activo",
@@ -172,10 +172,10 @@ function StatusBadge({ text }) {
 }
 
 function AdminClientsPage() {
-  const { currentUser, hasPermission } = useAuth();
-  const canManageClientAccess = hasPermission("clientAccess.manage");
-  const canDeleteClients = hasPermission("clients.delete");
-  const canDeleteSystems = hasPermission("systems.delete");
+  const { currentUser } = useAuth();
+  const canDeleteClientRecords = canDeleteClients(currentUser);
+  const canDeleteClientSystems = canDeleteSystems(currentUser);
+  const canManageAccess = canManageClientAccess(currentUser);
   const [clients, setClients] = useState([]);
   const [systems, setSystems] = useState([]);
   const [accessUsers, setAccessUsers] = useState([]);
@@ -223,7 +223,7 @@ function AdminClientsPage() {
   }, []);
 
   useEffect(() => {
-    if (!selectedClientId || !canManageClientAccess) {
+    if (!canManageAccess || !selectedClientId) {
       setAccessUsers([]);
       return () => {};
     }
@@ -235,7 +235,7 @@ function AdminClientsPage() {
     );
 
     return () => unsubscribe();
-  }, [selectedClientId, canManageClientAccess]);
+  }, [canManageAccess, selectedClientId]);
 
   const filteredClients = useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -282,7 +282,7 @@ function AdminClientsPage() {
   useEffect(() => {
     setSystemForm((prev) => ({ ...prev, clientId: selectedClientId || prev.clientId }));
     setAccessForm((prev) => ({ ...prev, clientId: selectedClientId || prev.clientId }));
-  }, [selectedClientId, canManageClientAccess]);
+  }, [selectedClientId]);
 
   const resetClientForm = () => {
     setEditingClientId("");
@@ -427,6 +427,11 @@ function AdminClientsPage() {
 
   const handleSaveAccess = async (event) => {
     event.preventDefault();
+
+    if (!canManageAccess) {
+      setErrorMessage("Solo un administrador puede crear accesos de cliente.");
+      return;
+    }
     setSavingAccess(true);
     setErrorMessage("");
     setSuccessMessage("");
@@ -444,6 +449,11 @@ function AdminClientsPage() {
   };
 
   const handleToggleAccess = async (user) => {
+    if (!canManageAccess) {
+      setErrorMessage("Solo un administrador puede activar o desactivar accesos.");
+      return;
+    }
+
     setUpdatingAccessId(user.id);
     setErrorMessage("");
     setSuccessMessage("");
@@ -463,6 +473,11 @@ function AdminClientsPage() {
   };
 
   const handleResetAccess = async (user) => {
+    if (!canManageAccess) {
+      setErrorMessage("Solo un administrador puede restablecer contraseñas.");
+      return;
+    }
+
     setUpdatingAccessId(user.id);
     setErrorMessage("");
     setSuccessMessage("");
@@ -479,6 +494,11 @@ function AdminClientsPage() {
   };
 
   const handleDeleteSystem = async (systemId) => {
+    if (!canDeleteClientSystems) {
+      setErrorMessage("Solo un administrador puede eliminar sistemas.");
+      return;
+    }
+
     setDeletingClientId(systemId);
     setErrorMessage("");
     setSuccessMessage("");
@@ -495,6 +515,11 @@ function AdminClientsPage() {
   };
 
   const handleDeleteClient = async (clientId) => {
+    if (!canDeleteClientRecords) {
+      setErrorMessage("Solo un administrador puede eliminar clientes.");
+      return;
+    }
+
     setDeletingClientId(clientId);
     setErrorMessage("");
     setSuccessMessage("");
@@ -522,10 +547,7 @@ function AdminClientsPage() {
         </p>
         <h2 className="section-title">Gestión de clientes y accesos</h2>
         <p className="section-subtitle mt-2">
-          Administre clientes, sistemas activos y la operación diaria del portal.
-        </p>
-        <p className="mt-3 text-xs font-semibold uppercase tracking-[0.22em] text-slate-500 transition-colors duration-300 dark:text-[#888888]">
-          Sesión actual: {getRoleLabel(currentUser?.role)}
+          Administre clientes, sistemas activos y accesos. Los agentes pueden operar el módulo sin ejecutar acciones sensibles.
         </p>
       </header>
 
@@ -612,9 +634,7 @@ function AdminClientsPage() {
                     </div>
                     <div className="flex gap-2">
                       <button type="button" className="btn-secondary px-4 py-2" onClick={() => handleEditClient(client)}>Editar</button>
-                      {canDeleteClients ? (
-                        <button type="button" className="btn-secondary px-4 py-2" onClick={() => handleDeleteClient(client.id)} disabled={deletingClientId === client.id}>{deletingClientId === client.id ? "Eliminando..." : "Eliminar"}</button>
-                      ) : null}
+                      {canDeleteClientRecords ? <button type="button" className="btn-secondary px-4 py-2" onClick={() => handleDeleteClient(client.id)} disabled={deletingClientId === client.id}>{deletingClientId === client.id ? "Eliminando..." : "Eliminar"}</button> : null}
                     </div>
                   </div>
                   <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
@@ -656,7 +676,7 @@ function AdminClientsPage() {
                       <p className="mt-1 text-sm text-slate-500 dark:text-[#B0B0B0]">{system.type}</p>
                       <div className="mt-3 flex flex-wrap gap-2"><StatusBadge text={SYSTEM_STATUS_LABELS[system.status] || system.status || "Activo"} /></div>
                     </div>
-                    <div className="flex gap-2"><button type="button" className="btn-secondary px-4 py-2" onClick={() => handleEditSystem(system)}>Editar</button>{canDeleteSystems ? <button type="button" className="btn-secondary px-4 py-2" onClick={() => handleDeleteSystem(system.id)} disabled={deletingClientId === system.id}>{deletingClientId === system.id ? "Eliminando..." : "Eliminar"}</button> : null}</div>
+                    <div className="flex gap-2"><button type="button" className="btn-secondary px-4 py-2" onClick={() => handleEditSystem(system)}>Editar</button>{canDeleteClientSystems ? <button type="button" className="btn-secondary px-4 py-2" onClick={() => handleDeleteSystem(system.id)} disabled={deletingClientId === system.id}>{deletingClientId === system.id ? "Eliminando..." : "Eliminar"}</button> : null}</div>
                   </div>
                   <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4"><InfoRow label="ID sistema" value={system.id} /><InfoRow label="URL" value={system.accessUrl} /><InfoRow label="Cliente" value={system.clientId} /><InfoRow label="Actualizado" value={formatDateTime(system.updatedAt)} /></div>
                 </article>
@@ -665,12 +685,13 @@ function AdminClientsPage() {
           </article>
 
           <article className="card-base p-5">
-            {canManageClientAccess ? (
+            <div>
+              <h3 className="text-base font-semibold text-slate-900 dark:text-[#E0E0E0]">Acceso real del cliente</h3>
+              <p className="mt-1 text-sm text-slate-500 dark:text-[#B0B0B0]">Cree usuarios del portal asociados al cliente seleccionado y active o desactive su acceso.</p>
+            </div>
+
+            {canManageAccess ? (
               <>
-                <div>
-                  <h3 className="text-base font-semibold text-slate-900 dark:text-[#E0E0E0]">Acceso real del cliente</h3>
-                  <p className="mt-1 text-sm text-slate-500 dark:text-[#B0B0B0]">Cree usuarios del portal asociados al cliente seleccionado y active o desactive su acceso.</p>
-                </div>
                 <form className="mt-5 space-y-4" onSubmit={handleSaveAccess}>
                   <div className="grid gap-4 md:grid-cols-3">
                     <div><label className="label-base">Nombre del usuario</label><input name="name" className="input-base" value={accessForm.name} onChange={handleAccessChange} /></div>
@@ -699,8 +720,8 @@ function AdminClientsPage() {
                 </div>
               </>
             ) : (
-              <div className="rounded-2xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
-                La administración de accesos, activación de usuarios cliente y restablecimiento de contraseñas está reservada para cuentas con rol Administrador.
+              <div className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300">
+                El rol agente puede administrar clientes y sistemas, pero no crear accesos, activar cuentas ni restablecer contraseñas.
               </div>
             )}
           </article>

@@ -1,8 +1,8 @@
 /**
  * Mobile-only bottom navigation.
  *
- * Admin/agent: Inicio, Tickets, Clientes, Fichas y panel "Más".
- * Client: Inicio, Tickets, Perfil y panel "Más".
+ * Staff keeps the current compact primary nav while the new Board entry
+ * is added to the quick actions sheet to avoid overloading the mobile bar.
  */
 
 import { useMemo, useState } from "react";
@@ -15,6 +15,14 @@ function DashboardIcon() {
   return (
     <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
       <path strokeLinecap="round" strokeLinejoin="round" d="M3 13.5h8.25V3H3v10.5ZM12.75 21H21V10.5h-8.25V21ZM12.75 3H21v4.5h-8.25V3ZM3 16.5h8.25V21H3v-4.5Z" />
+    </svg>
+  );
+}
+
+function BoardIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 6h4.5v12H4.5V6Zm5.25 3h4.5v9h-4.5V9ZM15 12h4.5v6H15v-6Z" />
     </svg>
   );
 }
@@ -137,6 +145,13 @@ function getMobileNavigationConfig(role) {
   if (isStaffRole(role)) {
     const quickLinks = [
       {
+        key: "board",
+        label: "Board operativo",
+        description: "Tablero Kanban para tareas internas del equipo.",
+        to: ROUTES.ADMIN_BOARD,
+        icon: <BoardIcon />,
+      },
+      {
         key: "quotes",
         label: "Cotizaciones",
         description: "Listado, detalle y nuevas proformas.",
@@ -174,7 +189,7 @@ function getMobileNavigationConfig(role) {
     ];
 
     if (isAdminRole(role)) {
-      quickLinks.splice(1, 0, {
+      quickLinks.splice(2, 0, {
         key: "users",
         label: "Equipo y roles",
         description: "Crear accesos internos y definir quién es agente.",
@@ -215,7 +230,7 @@ function getMobileNavigationConfig(role) {
           matchPrefixes: [ROUTES.ADMIN_TECHNICAL_REPORTS],
         },
       ],
-      moreMatchPrefixes: [ROUTES.ADMIN_QUOTES, ROUTES.ADMIN_CATALOG, ROUTES.ADMIN_USERS],
+      moreMatchPrefixes: [ROUTES.ADMIN_BOARD, ROUTES.ADMIN_QUOTES, ROUTES.ADMIN_CATALOG, ROUTES.ADMIN_USERS],
       quickLinks,
     };
   }

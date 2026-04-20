@@ -8,15 +8,16 @@ export const ROUTES = {
   APP: "/app",
 
   ADMIN_DASHBOARD: "/app/admin/dashboard",
+  ADMIN_BOARD: "/app/admin/board",
   ADMIN_TICKETS: "/app/admin/tickets",
   ADMIN_TICKETS_NEW: "/app/admin/tickets/new",
   ADMIN_CLIENTS: "/app/admin/clients",
-  ADMIN_USERS: "/app/admin/users",
   ADMIN_QUOTES: "/app/admin/quotes",
   ADMIN_QUOTES_NEW: "/app/admin/quotes/new",
   ADMIN_TECHNICAL_REPORTS: "/app/admin/technical-reports",
   ADMIN_TECHNICAL_REPORTS_NEW: "/app/admin/technical-reports/new",
   ADMIN_CATALOG: "/app/admin/catalog",
+  ADMIN_USERS: "/app/admin/users",
 
   CLIENT_DASHBOARD: "/app/client/dashboard",
   CLIENT_TICKETS: "/app/client/tickets",
@@ -40,4 +41,8 @@ export function buildAdminTechnicalReportDetailRoute(reportId) {
 
 export function buildAdminQuoteDetailRoute(quoteId) {
   return `/app/admin/quotes/${quoteId}`;
+}
+
+export function buildAdminBoardRoute(taskId = "") {
+  return taskId ? `/app/admin/board?task=${taskId}` : ROUTES.ADMIN_BOARD;
 }

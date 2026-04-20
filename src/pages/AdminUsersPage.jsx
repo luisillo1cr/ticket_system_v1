@@ -1,27 +1,39 @@
 /**
- * Admin internal users and roles management page.
+ * Internal staff users and roles management page.
  */
 
 import { useEffect, useMemo, useState } from "react";
+import { useAuth } from "../hooks/useAuth";
 import {
   createInternalUser,
   sendInternalUserResetEmail,
   subscribeInternalUsers,
   updateInternalUser,
 } from "../services/userService";
-import { useAuth } from "../hooks/useAuth";
 import { getRoleLabel } from "../utils/permissions";
 
-const ROLE_OPTIONS = [
-  { value: "admin", label: "Administrador" },
-  { value: "agent", label: "Agente" },
-];
+function formatDateTime(value) {
+  if (!value) return "Sin fecha";
+  const date = typeof value?.toDate === "function" ? value.toDate() : new Date(value);
+  return new Intl.DateTimeFormat("es-CR", { dateStyle: "medium", timeStyle: "short" }).format(date);
+}
 
-const STATUS_FILTER_OPTIONS = [
-  { value: "all", label: "Todos" },
-  { value: "active", label: "Activos" },
-  { value: "inactive", label: "Inactivos" },
-];
+function InfoRow({ label, value }) {
+  return (
+    <div>
+      <p className="text-xs font-semibold uppercase tracking-[0.15em] text-slate-500 transition-colors duration-300 dark:text-[#888888]">
+        {label}
+      </p>
+      <p className="mt-2 text-sm text-slate-700 transition-colors duration-300 dark:text-[#E0E0E0]">
+        {value || "No definido"}
+      </p>
+    </div>
+  );
+}
+
+function StatusBadge({ text }) {
+  return <span className="badge-neutral">{text}</span>;
+}
 
 function createEmptyForm() {
   return {
@@ -33,189 +45,27 @@ function createEmptyForm() {
   };
 }
 
-function formatDateTime(value) {
-  if (!value) return "Sin fecha";
-  const date = typeof value?.toDate === "function" ? value.toDate() : new Date(value);
-  return new Intl.DateTimeFormat("es-CR", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(date);
-}
-
-function roleBadgeClass(role) {
-  if (role === "admin") {
-    return "badge-info";
-  }
-
-  if (role === "agent") {
-    return "badge-success";
-  }
-
-  return "badge-neutral";
-}
-
-function statusBadgeClass(active) {
-  return active ? "badge-success" : "badge-warning";
-}
-
-function StatCard({ label, value, help }) {
-  return (
-    <div className="card-base p-5">
-      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-[#888888]">
-        {label}
-      </p>
-      <p className="mt-3 text-2xl font-semibold text-slate-900 dark:text-[#E0E0E0]">{value}</p>
-      <p className="mt-2 text-sm text-slate-500 dark:text-[#B0B0B0]">{help}</p>
-    </div>
-  );
-}
-
-function UserEditModal({ user, currentUserId, onClose, onSave, saving }) {
-  const [form, setForm] = useState({
-    name: user?.name || "",
-    role: user?.role || "agent",
-    active: user?.active !== false,
-  });
-  const isSelf = user?.id === currentUserId;
-
-  useEffect(() => {
-    setForm({
-      name: user?.name || "",
-      role: user?.role || "agent",
-      active: user?.active !== false,
-    });
-  }, [user]);
-
-  if (!user) {
-    return null;
-  }
-
-  const handleSubmit = async (event) => {
-    event.preventDefault();
-    await onSave(form);
-  };
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 px-4 py-6 backdrop-blur-[2px]">
-      <div className="card-base w-full max-w-lg overflow-hidden">
-        <div className="border-b border-slate-200 px-6 py-5 dark:border-[#444444]">
-          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500 dark:text-[#888888]">
-            Editar usuario interno
-          </p>
-          <h3 className="mt-2 text-lg font-semibold text-slate-900 dark:text-[#E0E0E0]">
-            {user.name || user.email || "Usuario interno"}
-          </h3>
-          <p className="mt-2 text-sm text-slate-500 dark:text-[#B0B0B0]">
-            Ajusta nombre visible, rol y estado sin salir del panel.
-          </p>
-        </div>
-
-        <form onSubmit={handleSubmit} className="space-y-5 p-6">
-          <div>
-            <label className="label-base" htmlFor="edit-internal-user-name">
-              Nombre visible
-            </label>
-            <input
-              id="edit-internal-user-name"
-              className="input-base"
-              value={form.name}
-              onChange={(event) =>
-                setForm((current) => ({ ...current, name: event.target.value }))
-              }
-              placeholder="Nombre completo o alias profesional"
-            />
-          </div>
-
-          <div className="grid gap-4 md:grid-cols-2">
-            <div>
-              <label className="label-base" htmlFor="edit-internal-user-role">
-                Rol
-              </label>
-              <select
-                id="edit-internal-user-role"
-                className="input-base"
-                value={form.role}
-                disabled={isSelf}
-                onChange={(event) =>
-                  setForm((current) => ({ ...current, role: event.target.value }))
-                }
-              >
-                {ROLE_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-              {isSelf ? (
-                <p className="mt-2 text-xs text-amber-600 dark:text-amber-300">
-                  Tu propio rol no se cambia desde esta pantalla.
-                </p>
-              ) : null}
-            </div>
-
-            <div>
-              <label className="label-base" htmlFor="edit-internal-user-status">
-                Estado
-              </label>
-              <select
-                id="edit-internal-user-status"
-                className="input-base"
-                value={form.active ? "active" : "inactive"}
-                disabled={isSelf}
-                onChange={(event) =>
-                  setForm((current) => ({ ...current, active: event.target.value === "active" }))
-                }
-              >
-                <option value="active">Activo</option>
-                <option value="inactive">Inactivo</option>
-              </select>
-              {isSelf ? (
-                <p className="mt-2 text-xs text-amber-600 dark:text-amber-300">
-                  Tu propio acceso no se desactiva desde aquí.
-                </p>
-              ) : null}
-            </div>
-          </div>
-
-          <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600 dark:border-[#444444] dark:bg-[#121212] dark:text-[#B0B0B0]">
-            Correo autenticado: <span className="font-medium">{user.email || "Sin correo"}</span>
-          </div>
-
-          <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-            <button type="button" className="btn-secondary" onClick={onClose}>
-              Cancelar
-            </button>
-            <button type="submit" className="btn-primary" disabled={saving}>
-              {saving ? "Guardando..." : "Guardar cambios"}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
-}
-
 function AdminUsersPage() {
-  const { currentUser, hasPermission } = useAuth();
-  const [internalUsers, setInternalUsers] = useState([]);
-  const [listError, setListError] = useState("");
-  const [feedback, setFeedback] = useState({ type: "", message: "" });
-  const [createForm, setCreateForm] = useState(createEmptyForm());
-  const [createLoading, setCreateLoading] = useState(false);
-  const [editTarget, setEditTarget] = useState(null);
-  const [editLoading, setEditLoading] = useState(false);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [roleFilter, setRoleFilter] = useState("all");
-  const [statusFilter, setStatusFilter] = useState("all");
+  const { currentUser } = useAuth();
+  const [users, setUsers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
+  const [form, setForm] = useState(createEmptyForm());
+  const [saving, setSaving] = useState(false);
+  const [editingUserId, setEditingUserId] = useState("");
+  const [updatingUserId, setUpdatingUserId] = useState("");
+  const [search, setSearch] = useState("");
 
   useEffect(() => {
     const unsubscribe = subscribeInternalUsers(
-      (users) => {
-        setInternalUsers(users);
-        setListError("");
+      (data) => {
+        setUsers(data);
+        setLoading(false);
       },
-      (error) => {
-        setListError(error?.message || "No fue posible cargar los usuarios internos.");
+      () => {
+        setErrorMessage("No fue posible cargar el equipo interno.");
+        setLoading(false);
       }
     );
 
@@ -223,362 +73,247 @@ function AdminUsersPage() {
   }, []);
 
   const filteredUsers = useMemo(() => {
-    const normalizedSearch = String(searchTerm || "").trim().toLowerCase();
+    const term = search.trim().toLowerCase();
+    return users.filter((user) => {
+      if (!term) return true;
 
-    return internalUsers.filter((user) => {
-      const matchesSearch =
-        !normalizedSearch ||
-        String(user.name || "").toLowerCase().includes(normalizedSearch) ||
-        String(user.email || "").toLowerCase().includes(normalizedSearch);
-
-      const matchesRole = roleFilter === "all" || user.role === roleFilter;
-      const matchesStatus =
-        statusFilter === "all" ||
-        (statusFilter === "active" ? user.active !== false : user.active === false);
-
-      return matchesSearch && matchesRole && matchesStatus;
+      return [user.name, user.email, user.role, user.id]
+        .filter(Boolean)
+        .some((value) => String(value).toLowerCase().includes(term));
     });
-  }, [internalUsers, roleFilter, searchTerm, statusFilter]);
+  }, [users, search]);
 
-  const stats = useMemo(() => {
-    const total = internalUsers.length;
-    const admins = internalUsers.filter((user) => user.role === "admin").length;
-    const agents = internalUsers.filter((user) => user.role === "agent").length;
-    const inactive = internalUsers.filter((user) => user.active === false).length;
+  const resetForm = () => {
+    setEditingUserId("");
+    setForm(createEmptyForm());
+  };
 
-    return { total, admins, agents, inactive };
-  }, [internalUsers]);
+  const handleChange = (event) => {
+    const { name, value, type, checked } = event.target;
+    setForm((prev) => ({
+      ...prev,
+      [name]: type === "checkbox" ? checked : value,
+    }));
+  };
 
-  const handleCreateUser = async (event) => {
+  const handleEdit = (user) => {
+    setEditingUserId(user.id);
+    setForm({
+      name: user.name || "",
+      email: user.email || "",
+      password: "",
+      role: user.role || "agent",
+      active: user.active !== false,
+    });
+    setErrorMessage("");
+    setSuccessMessage("");
+  };
+
+  const handleSubmit = async (event) => {
     event.preventDefault();
-    setFeedback({ type: "", message: "" });
-    setCreateLoading(true);
+    setSaving(true);
+    setErrorMessage("");
+    setSuccessMessage("");
 
     try {
-      await createInternalUser(createForm, currentUser);
-      setCreateForm(createEmptyForm());
-      setFeedback({
-        type: "success",
-        message: "Usuario interno creado correctamente. Ya puedes compartir el acceso inicial.",
-      });
+      if (!form.name.trim()) {
+        throw new Error("El nombre del usuario es obligatorio.");
+      }
+
+      if (editingUserId) {
+        if (
+          editingUserId === currentUser?.uid &&
+          (form.role !== "admin" || form.active === false)
+        ) {
+          throw new Error("No puede degradar ni desactivar su propia cuenta desde esta pantalla.");
+        }
+
+        await updateInternalUser(editingUserId, form);
+        setSuccessMessage("Usuario interno actualizado correctamente.");
+      } else {
+        if (!form.email.trim()) {
+          throw new Error("El correo del usuario es obligatorio.");
+        }
+
+        if (String(form.password || "").trim().length < 6) {
+          throw new Error("La contraseña inicial debe tener al menos 6 caracteres.");
+        }
+
+        await createInternalUser(form, currentUser);
+        setSuccessMessage("Usuario interno creado correctamente.");
+      }
+
+      resetForm();
     } catch (error) {
-      setFeedback({
-        type: "error",
-        message: error?.message || "No fue posible crear el usuario interno.",
-      });
+      console.error("Error saving internal user:", error);
+      setErrorMessage(error.message || "No fue posible guardar el usuario interno.");
     } finally {
-      setCreateLoading(false);
+      setSaving(false);
     }
   };
 
-  const handleSaveEdit = async (payload) => {
-    if (!editTarget) {
-      return;
-    }
-
-    if (editTarget.id === currentUser?.uid) {
-      if (payload.role !== editTarget.role) {
-        setFeedback({
-          type: "error",
-          message: "No puedes cambiar tu propio rol desde esta pantalla.",
-        });
-        return;
-      }
-
-      if (payload.active === false) {
-        setFeedback({
-          type: "error",
-          message: "No puedes desactivar tu propio acceso desde esta pantalla.",
-        });
-        return;
-      }
-    }
-
-    setEditLoading(true);
-    setFeedback({ type: "", message: "" });
-
-    try {
-      await updateInternalUser(editTarget.id, payload);
-      setEditTarget(null);
-      setFeedback({
-        type: "success",
-        message: "Usuario interno actualizado correctamente.",
-      });
-    } catch (error) {
-      setFeedback({
-        type: "error",
-        message: error?.message || "No fue posible actualizar el usuario interno.",
-      });
-    } finally {
-      setEditLoading(false);
-    }
-  };
-
-  const handleSendReset = async (user) => {
-    setFeedback({ type: "", message: "" });
+  const handleResetPassword = async (user) => {
+    setUpdatingUserId(user.id);
+    setErrorMessage("");
+    setSuccessMessage("");
 
     try {
       await sendInternalUserResetEmail(user.email);
-      setFeedback({
-        type: "success",
-        message: `Se envió un correo de restablecimiento a ${user.email}.`,
-      });
+      setSuccessMessage("Se envió el correo de restablecimiento de contraseña.");
     } catch (error) {
-      setFeedback({
-        type: "error",
-        message: error?.message || "No fue posible enviar el correo de restablecimiento.",
-      });
+      console.error("Error sending internal reset email:", error);
+      setErrorMessage("No fue posible enviar el correo de restablecimiento.");
+    } finally {
+      setUpdatingUserId("");
     }
   };
 
-  if (!hasPermission?.("users.manage")) {
-    return (
-      <section className="space-y-4">
-        <div className="card-base p-6">
-          <h1 className="section-title">Equipo y roles</h1>
-          <p className="section-subtitle mt-2">
-            No tienes permisos para administrar usuarios internos desde este panel.
-          </p>
-        </div>
-      </section>
-    );
+  if (loading) {
+    return <section className="card-base p-6">Cargando equipo interno...</section>;
   }
 
   return (
     <section className="space-y-6">
-      <header className="card-base p-6">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500 dark:text-[#888888]">
-              Administración interna
-            </p>
-            <h1 className="section-title mt-2">Equipo y roles</h1>
-            <p className="section-subtitle mt-3 max-w-3xl">
-              Desde aquí defines qué usuarios internos son administradores o agentes. Los accesos
-              de clientes siguen administrándose desde la página de clientes.
-            </p>
-          </div>
-
-          <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600 dark:border-[#444444] dark:bg-[#121212] dark:text-[#B0B0B0]">
-            Eliminación de cuentas Auth: <span className="font-medium">manual en Firebase</span>
-          </div>
-        </div>
+      <header>
+        <p className="mb-2 text-xs font-semibold uppercase tracking-[0.3em] text-slate-500 transition-colors duration-300 dark:text-[#888888]">
+          Equipo y roles
+        </p>
+        <h2 className="section-title">Gestión de usuarios internos</h2>
+        <p className="section-subtitle mt-2">
+          Cree cuentas de administración y agentes de soporte, y controle su estado operativo.
+        </p>
       </header>
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Usuarios internos" value={stats.total} help="Total de administradores y agentes." />
-        <StatCard label="Administradores" value={stats.admins} help="Acceso total al sistema." />
-        <StatCard label="Agentes" value={stats.agents} help="Operación amplia con límites sensibles." />
-        <StatCard label="Inactivos" value={stats.inactive} help="Accesos temporalmente deshabilitados." />
-      </div>
-
-      {feedback.message ? (
-        <div
-          className={`rounded-2xl border px-4 py-3 text-sm ${
-            feedback.type === "success"
-              ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-500/25 dark:bg-emerald-500/10 dark:text-emerald-300"
-              : "border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-500/25 dark:bg-rose-500/10 dark:text-rose-300"
-          }`}
-        >
-          {feedback.message}
+      {errorMessage ? (
+        <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-300">
+          {errorMessage}
         </div>
       ) : null}
 
-      {listError ? (
-        <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700 dark:border-rose-500/25 dark:bg-rose-500/10 dark:text-rose-300">
-          {listError}
+      {successMessage ? (
+        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300">
+          {successMessage}
         </div>
       ) : null}
 
-      <div className="grid gap-6 xl:grid-cols-[380px_minmax(0,1fr)]">
-        <aside className="space-y-6">
-          <div className="card-base p-6">
-            <h2 className="text-lg font-semibold text-slate-900 dark:text-[#E0E0E0]">
-              Crear usuario interno
-            </h2>
-            <p className="mt-2 text-sm text-slate-500 dark:text-[#B0B0B0]">
-              Crea accesos internos para administradores o agentes con credenciales iniciales.
-            </p>
+      <div className="grid gap-6 xl:grid-cols-[380px_minmax(0,1fr)] xl:items-start">
+        <article className="card-base p-6 xl:sticky xl:top-6">
+          <h3 className="text-base font-semibold text-slate-900 transition-colors duration-300 dark:text-[#E0E0E0]">
+            {editingUserId ? "Editar usuario interno" : "Nuevo usuario interno"}
+          </h3>
 
-            <form className="mt-6 space-y-4" onSubmit={handleCreateUser}>
-              <div>
-                <label className="label-base" htmlFor="internal-user-name">
-                  Nombre visible
-                </label>
-                <input
-                  id="internal-user-name"
-                  className="input-base"
-                  value={createForm.name}
-                  onChange={(event) =>
-                    setCreateForm((current) => ({ ...current, name: event.target.value }))
-                  }
-                  placeholder="Nombre completo o alias del colaborador"
-                />
-              </div>
+          <form className="mt-5 space-y-4" onSubmit={handleSubmit}>
+            <div>
+              <label className="label-base">Nombre visible</label>
+              <input
+                name="name"
+                className="input-base"
+                value={form.name}
+                onChange={handleChange}
+                placeholder="Ejemplo: Laura Rodríguez"
+              />
+            </div>
 
-              <div>
-                <label className="label-base" htmlFor="internal-user-email">
-                  Correo de acceso
-                </label>
-                <input
-                  id="internal-user-email"
-                  type="email"
-                  className="input-base"
-                  value={createForm.email}
-                  onChange={(event) =>
-                    setCreateForm((current) => ({ ...current, email: event.target.value }))
-                  }
-                  placeholder="correo@moonforge.digital"
-                />
-              </div>
+            <div>
+              <label className="label-base">Correo</label>
+              <input
+                name="email"
+                type="email"
+                className="input-base"
+                value={form.email}
+                onChange={handleChange}
+                disabled={Boolean(editingUserId)}
+                placeholder="usuario@empresa.com"
+              />
+              {editingUserId ? (
+                <p className="mt-2 text-xs text-slate-500 transition-colors duration-300 dark:text-[#888888]">
+                  El correo se conserva y no se modifica desde esta pantalla.
+                </p>
+              ) : null}
+            </div>
 
+            {!editingUserId ? (
               <div>
-                <label className="label-base" htmlFor="internal-user-password">
-                  Contraseña inicial
-                </label>
+                <label className="label-base">Contraseña inicial</label>
                 <input
-                  id="internal-user-password"
+                  name="password"
                   type="password"
                   className="input-base"
-                  value={createForm.password}
-                  onChange={(event) =>
-                    setCreateForm((current) => ({ ...current, password: event.target.value }))
-                  }
+                  value={form.password}
+                  onChange={handleChange}
                   placeholder="Mínimo 6 caracteres"
                 />
               </div>
+            ) : null}
 
-              <div className="grid gap-4 md:grid-cols-2">
-                <div>
-                  <label className="label-base" htmlFor="internal-user-role">
-                    Rol inicial
-                  </label>
-                  <select
-                    id="internal-user-role"
-                    className="input-base"
-                    value={createForm.role}
-                    onChange={(event) =>
-                      setCreateForm((current) => ({ ...current, role: event.target.value }))
-                    }
-                  >
-                    {ROLE_OPTIONS.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="label-base" htmlFor="internal-user-active">
-                    Estado inicial
-                  </label>
-                  <select
-                    id="internal-user-active"
-                    className="input-base"
-                    value={createForm.active ? "active" : "inactive"}
-                    onChange={(event) =>
-                      setCreateForm((current) => ({
-                        ...current,
-                        active: event.target.value === "active",
-                      }))
-                    }
-                  >
-                    <option value="active">Activo</option>
-                    <option value="inactive">Inactivo</option>
-                  </select>
-                </div>
-              </div>
-
-              <button type="submit" className="btn-primary w-full" disabled={createLoading}>
-                {createLoading ? "Creando usuario..." : "Crear usuario interno"}
-              </button>
-            </form>
-          </div>
-
-          <div className="card-base p-6">
-            <h2 className="text-lg font-semibold text-slate-900 dark:text-[#E0E0E0]">
-              Reglas prácticas
-            </h2>
-            <ul className="mt-4 space-y-3 text-sm text-slate-600 dark:text-[#B0B0B0]">
-              <li>• Usa <span className="font-medium">admin</span> solo para dueños o responsables del sistema.</li>
-              <li>• Usa <span className="font-medium">agent</span> para operación diaria sin acciones sensibles.</li>
-              <li>• El restablecimiento de contraseña se envía por correo desde este panel.</li>
-              <li>• La eliminación completa en Firebase Authentication sigue siendo manual.</li>
-            </ul>
-          </div>
-        </aside>
-
-        <div className="space-y-6">
-          <div className="card-base p-6">
-            <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+            <div className="grid gap-4 md:grid-cols-2">
               <div>
-                <h2 className="text-lg font-semibold text-slate-900 dark:text-[#E0E0E0]">
-                  Usuarios internos actuales
-                </h2>
-                <p className="mt-2 text-sm text-slate-500 dark:text-[#B0B0B0]">
-                  Edita nombre visible, rol y estado operativo de cada acceso interno.
-                </p>
+                <label className="label-base">Rol</label>
+                <select name="role" className="input-base" value={form.role} onChange={handleChange}>
+                  <option value="agent">Agente</option>
+                  <option value="admin">Administrador</option>
+                </select>
               </div>
 
-              <div className="grid gap-3 sm:grid-cols-3 xl:min-w-[560px]">
-                <div>
-                  <label className="label-base" htmlFor="staff-search">
-                    Buscar
-                  </label>
-                  <input
-                    id="staff-search"
-                    className="input-base"
-                    value={searchTerm}
-                    onChange={(event) => setSearchTerm(event.target.value)}
-                    placeholder="Nombre o correo"
-                  />
-                </div>
-
-                <div>
-                  <label className="label-base" htmlFor="staff-role-filter">
-                    Rol
-                  </label>
-                  <select
-                    id="staff-role-filter"
-                    className="input-base"
-                    value={roleFilter}
-                    onChange={(event) => setRoleFilter(event.target.value)}
-                  >
-                    <option value="all">Todos</option>
-                    {ROLE_OPTIONS.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="label-base" htmlFor="staff-status-filter">
-                    Estado
-                  </label>
-                  <select
-                    id="staff-status-filter"
-                    className="input-base"
-                    value={statusFilter}
-                    onChange={(event) => setStatusFilter(event.target.value)}
-                  >
-                    {STATUS_FILTER_OPTIONS.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
+              <label className="flex items-center justify-between gap-4 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 transition-colors duration-300 dark:border-[#444444] dark:bg-[#181818]">
+                <span className="text-sm font-medium text-slate-900 transition-colors duration-300 dark:text-[#E0E0E0]">
+                  Acceso activo
+                </span>
+                <input
+                  name="active"
+                  type="checkbox"
+                  checked={form.active}
+                  onChange={handleChange}
+                  className="h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-400 dark:border-[#555555] dark:bg-[#121212]"
+                />
+              </label>
             </div>
 
-            <div className="mt-6 grid gap-4">
+            <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 transition-colors duration-300 dark:border-[#444444] dark:bg-[#181818]">
+              <p className="text-xs font-semibold uppercase tracking-[0.15em] text-slate-500 transition-colors duration-300 dark:text-[#888888]">
+                Alcance operativo
+              </p>
+              <p className="mt-2 text-sm text-slate-700 transition-colors duration-300 dark:text-[#E0E0E0]">
+                {form.role === "admin"
+                  ? "Acceso total al panel y a la administración de usuarios internos."
+                  : "Acceso operativo a tickets, clientes, fichas, cotizaciones y catálogo sin acciones sensibles."}
+              </p>
+            </div>
+
+            <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+              {editingUserId ? (
+                <button type="button" className="btn-secondary" onClick={resetForm}>
+                  Cancelar
+                </button>
+              ) : null}
+              <button type="submit" className="btn-primary" disabled={saving}>
+                {saving ? "Guardando..." : editingUserId ? "Guardar cambios" : "Crear usuario interno"}
+              </button>
+            </div>
+          </form>
+        </article>
+
+        <div className="space-y-6">
+          <article className="card-base p-5">
+            <label className="label-base">Buscar por nombre, correo, rol o UID</label>
+            <input
+              className="input-base"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Buscar usuario interno"
+            />
+          </article>
+
+          <article className="card-base p-5">
+            <h3 className="text-base font-semibold text-slate-900 dark:text-[#E0E0E0]">
+              Equipo interno
+            </h3>
+
+            <div className="mt-5 grid gap-4">
               {filteredUsers.length === 0 ? (
-                <div className="rounded-2xl border border-dashed border-slate-300 px-4 py-8 text-center text-sm text-slate-500 dark:border-[#444444] dark:text-[#B0B0B0]">
-                  No hay usuarios internos que coincidan con los filtros actuales.
-                </div>
+                <p className="text-sm text-slate-500 dark:text-[#B0B0B0]">
+                  No hay usuarios internos registrados todavía.
+                </p>
               ) : (
                 filteredUsers.map((user) => {
                   const isSelf = user.id === currentUser?.uid;
@@ -586,75 +321,52 @@ function AdminUsersPage() {
                   return (
                     <article
                       key={user.id}
-                      className="rounded-2xl border border-slate-200 bg-slate-50 p-5 transition-colors duration-300 dark:border-[#444444] dark:bg-[#121212]"
+                      className="rounded-2xl border border-slate-200 bg-white p-4 transition-colors duration-300 dark:border-[#444444] dark:bg-[#1A1A1A]"
                     >
-                      <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-                        <div className="min-w-0 flex-1">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <h3 className="truncate text-base font-semibold text-slate-900 dark:text-[#E0E0E0]">
-                              {user.name || "Sin nombre visible"}
-                            </h3>
-                            <span className={roleBadgeClass(user.role)}>{getRoleLabel(user.role)}</span>
-                            <span className={statusBadgeClass(user.active !== false)}>
-                              {user.active !== false ? "Activo" : "Inactivo"}
-                            </span>
-                            {isSelf ? <span className="badge-neutral">Tu cuenta</span> : null}
-                          </div>
-
-                          <div className="mt-3 grid gap-3 text-sm text-slate-600 dark:text-[#B0B0B0] md:grid-cols-2">
-                            <p>
-                              <span className="font-medium text-slate-700 dark:text-[#E0E0E0]">Correo:</span>{" "}
-                              {user.email || "No definido"}
-                            </p>
-                            <p>
-                              <span className="font-medium text-slate-700 dark:text-[#E0E0E0]">Creado:</span>{" "}
-                              {formatDateTime(user.createdAt)}
-                            </p>
-                            <p>
-                              <span className="font-medium text-slate-700 dark:text-[#E0E0E0]">Actualizado:</span>{" "}
-                              {formatDateTime(user.updatedAt)}
-                            </p>
-                            <p>
-                              <span className="font-medium text-slate-700 dark:text-[#E0E0E0]">Creado por:</span>{" "}
-                              {user.createdByName || "Sistema"}
-                            </p>
+                      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                        <div className="min-w-0">
+                          <h4 className="text-base font-semibold text-slate-900 dark:text-[#E0E0E0]">
+                            {user.name || user.email || user.id}
+                          </h4>
+                          <p className="mt-1 text-sm text-slate-500 dark:text-[#B0B0B0]">
+                            {user.email || "Sin correo"}
+                          </p>
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            <StatusBadge text={getRoleLabel(user.role)} />
+                            <StatusBadge text={user.active === false ? "Inactivo" : "Activo"} />
+                            {isSelf ? <StatusBadge text="Tu cuenta" /> : null}
                           </div>
                         </div>
 
-                        <div className="flex shrink-0 flex-wrap gap-3">
-                          <button
-                            type="button"
-                            className="btn-secondary"
-                            onClick={() => setEditTarget(user)}
-                          >
+                        <div className="flex flex-wrap gap-2">
+                          <button type="button" className="btn-secondary px-4 py-2" onClick={() => handleEdit(user)}>
                             Editar
                           </button>
-
                           <button
                             type="button"
-                            className="btn-secondary"
-                            onClick={() => handleSendReset(user)}
+                            className="btn-secondary px-4 py-2"
+                            onClick={() => handleResetPassword(user)}
+                            disabled={updatingUserId === user.id}
                           >
-                            Resetear clave
+                            {updatingUserId === user.id ? "Enviando..." : "Reset password"}
                           </button>
                         </div>
+                      </div>
+
+                      <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                        <InfoRow label="UID" value={user.id} />
+                        <InfoRow label="Creado" value={formatDateTime(user.createdAt)} />
+                        <InfoRow label="Actualizado" value={formatDateTime(user.updatedAt)} />
+                        <InfoRow label="Creado por" value={user.createdByName || user.createdByUid} />
                       </div>
                     </article>
                   );
                 })
               )}
             </div>
-          </div>
+          </article>
         </div>
       </div>
-
-      <UserEditModal
-        user={editTarget}
-        currentUserId={currentUser?.uid}
-        onClose={() => setEditTarget(null)}
-        onSave={handleSaveEdit}
-        saving={editLoading}
-      />
     </section>
   );
 }
